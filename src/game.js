@@ -10,6 +10,9 @@
 const GAME_WIDTH = 480;
 const GAME_HEIGHT = 270;
 
+const WORLD_WIDTH = 1600;
+const WORLD_HEIGHT = 1200;
+
 // Colors
 const COLOR_BG = 0x222222;
 const COLOR_PLAYER = 0x00ff00; // Bright Green
@@ -47,117 +50,16 @@ const FONT_STYLE = {
 // Enemy Definitions
 // ----------------------------------------------------------------------------
 const ENEMY_TYPES = {
-    normal: {
-        id: 'normal',
-        color: COLOR_ENEMY_NORMAL,
-        size: 12,
-        hp: 2,
-        speed: 50,
-        damage: 1,
-        xp: 1,
-        behavior: 'chaser'
-    },
-    fast: {
-        id: 'fast',
-        color: COLOR_ENEMY_FAST,
-        size: 8,
-        hp: 1,
-        speed: 85,
-        damage: 1,
-        xp: 1,
-        behavior: 'chaser'
-    },
-    tank: {
-        id: 'tank',
-        color: COLOR_ENEMY_TANK,
-        size: 16,
-        hp: 8,
-        speed: 30,
-        damage: 2,
-        xp: 3,
-        behavior: 'chaser'
-    },
-    exploder: {
-        id: 'exploder',
-        color: COLOR_ENEMY_EXPLODER,
-        size: 10,
-        hp: 3,
-        speed: 60,
-        damage: 1, // Touch damage
-        xp: 2,
-        behavior: 'chaser', // Moves normally but explodes on death
-        explodeDamage: 2,
-        explodeRadius: 60
-    },
-    charger: {
-        id: 'charger',
-        color: COLOR_ENEMY_CHARGER,
-        size: 12,
-        hp: 4,
-        speed: 40, // Normal move speed
-        damage: 1,
-        chargeSpeed: 200,
-        chargeDamage: 2,
-        xp: 2,
-        behavior: 'charger'
-    },
-    splitter: {
-        id: 'splitter',
-        color: COLOR_ENEMY_SPLITTER,
-        size: 14,
-        hp: 5,
-        speed: 45,
-        damage: 1,
-        xp: 2,
-        behavior: 'splitter',
-        splitCount: 2,
-        isBig: true
-    },
-    splitter_small: { // Internal type for split result
-        id: 'splitter_small',
-        color: COLOR_ENEMY_SPLITTER,
-        size: 8,
-        hp: 2,
-        speed: 60,
-        damage: 1,
-        xp: 1,
-        behavior: 'chaser',
-        isBig: false
-    },
-    buffer: {
-        id: 'buffer',
-        color: COLOR_ENEMY_BUFFER,
-        size: 14,
-        hp: 6,
-        speed: 35,
-        damage: 1,
-        xp: 3,
-        behavior: 'buffer',
-        auraRadius: 80,
-        buffSpeed: 1.5
-    },
-    elite: {
-        id: 'elite',
-        color: COLOR_ENEMY_ELITE,
-        size: 20,
-        hp: 20,
-        speed: 55,
-        damage: 2,
-        xp: 10,
-        behavior: 'chaser'
-    },
-    sniper: {
-        id: 'sniper',
-        color: COLOR_ENEMY_SNIPER,
-        size: 12,
-        hp: 4,
-        speed: 40,
-        damage: 1,
-        xp: 3,
-        behavior: 'sniper',
-        range: 150,
-        fireRate: 2000 // ms
-    }
+    normal: { id: 'normal', color: COLOR_ENEMY_NORMAL, size: 12, hp: 2, speed: 50, damage: 1, xp: 1, behavior: 'chaser' },
+    fast: { id: 'fast', color: COLOR_ENEMY_FAST, size: 8, hp: 1, speed: 85, damage: 1, xp: 1, behavior: 'chaser' },
+    tank: { id: 'tank', color: COLOR_ENEMY_TANK, size: 16, hp: 8, speed: 30, damage: 2, xp: 3, behavior: 'chaser' },
+    exploder: { id: 'exploder', color: COLOR_ENEMY_EXPLODER, size: 10, hp: 3, speed: 60, damage: 1, xp: 2, behavior: 'exploder', explodeDamage: 2, explodeRadius: 60 },
+    charger: { id: 'charger', color: COLOR_ENEMY_CHARGER, size: 12, hp: 4, speed: 40, damage: 1, chargeSpeed: 200, chargeDamage: 2, xp: 2, behavior: 'charger' },
+    splitter: { id: 'splitter', color: COLOR_ENEMY_SPLITTER, size: 14, hp: 5, speed: 45, damage: 1, xp: 2, behavior: 'splitter', splitCount: 2, isBig: true },
+    splitter_small: { id: 'splitter_small', color: COLOR_ENEMY_SPLITTER, size: 8, hp: 2, speed: 60, damage: 1, xp: 1, behavior: 'chaser', isBig: false },
+    buffer: { id: 'buffer', color: COLOR_ENEMY_BUFFER, size: 14, hp: 6, speed: 35, damage: 1, xp: 3, behavior: 'buffer', auraRadius: 80, buffSpeed: 1.5 },
+    elite: { id: 'elite', color: COLOR_ENEMY_ELITE, size: 20, hp: 20, speed: 55, damage: 2, xp: 10, behavior: 'chaser' },
+    sniper: { id: 'sniper', color: COLOR_ENEMY_SNIPER, size: 12, hp: 4, speed: 40, damage: 1, xp: 3, behavior: 'sniper', range: 150, fireRate: 2000 }
 };
 
 // ----------------------------------------------------------------------------
@@ -165,15 +67,13 @@ const ENEMY_TYPES = {
 // Preloads assets and creates procedural textures
 // ----------------------------------------------------------------------------
 class BootScene extends Phaser.Scene {
-    constructor() {
-        super('BootScene');
-    }
+    constructor() { super('BootScene'); }
 
     create() {
         // 1. Player
         this.createRectTexture('player', COLOR_PLAYER, 12, 12);
 
-        // 2. Enemies (Generate textures dynamically based on ENEMY_TYPES)
+        // 2. Enemies
         Object.values(ENEMY_TYPES).forEach(type => {
             this.createRectTexture(`enemy_${type.id}`, type.color, type.size, type.size);
         });
@@ -186,6 +86,14 @@ class BootScene extends Phaser.Scene {
         // 4. Pickups & FX
         this.createCircleTexture('gem', COLOR_XP, 3);
         this.createRectTexture('particle', COLOR_PARTICLE, 2, 2);
+
+        // 5. Background Grid
+        let g = this.make.graphics({x:0, y:0, add:false});
+        g.fillStyle(COLOR_BG, 1);
+        g.fillRect(0, 0, 32, 32);
+        g.lineStyle(1, 0x333333, 1);
+        g.strokeRect(0, 0, 32, 32);
+        g.generateTexture('bg_grid', 32, 32);
 
         this.scene.start('MainMenuScene');
     }
@@ -238,7 +146,7 @@ class GameScene extends Phaser.Scene {
         this.isGameOver = false;
         this.isChoosingUpgrade = false;
         this.isPaused = false;
-        this.upgradeChoicesCount = 3; // How many cards to show
+        this.upgradeChoicesCount = 3;
 
         // Stats
         this.playerStats = {
@@ -248,7 +156,7 @@ class GameScene extends Phaser.Scene {
             pickupRange: MAGNET_RADIUS_BASE,
             critChance: 0,
             critMultiplier: 1.5,
-            damageMultiplier: 1, // Global damage mult
+            damageMultiplier: 1, 
             isBerserker: false,
             hasSlowAura: false,
             hasBurningAura: false,
@@ -271,12 +179,18 @@ class GameScene extends Phaser.Scene {
 
         this.initUpgradePool();
 
-        // --- Physics World ---
-        this.physics.world.setBounds(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        this.add.grid(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 32, 32, 0x222222, 1, 0x333333, 1);
+        // --- Physics World & Camera ---
+        this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        
+        // Background - Tiled across whole world
+        this.add.tileSprite(WORLD_WIDTH/2, WORLD_HEIGHT/2, WORLD_WIDTH, WORLD_HEIGHT, 'bg_grid').setDepth(-10);
+
+        // Camera Follow
+        this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        this.cameras.main.setZoom(1.0); 
 
         // --- Groups ---
-        this.enemies = this.physics.add.group({ runChildUpdate: false }); // We update manually for custom behaviors
+        this.enemies = this.physics.add.group({ runChildUpdate: false }); 
         this.bullets = this.physics.add.group({ defaultKey: 'bullet', maxSize: 100 });
         this.enemyBullets = this.physics.add.group({ defaultKey: 'enemy_bullet', maxSize: 50 });
         this.orbitGroup = this.physics.add.group({ defaultKey: 'orbit_orb', maxSize: 20 });
@@ -286,16 +200,16 @@ class GameScene extends Phaser.Scene {
         this.deathEmitter = this.add.particles(0, 0, 'particle', {
             lifespan: 400, speed: {min: 50, max: 150}, scale: {start: 1.5, end: 0}, quantity: 6, emitting: false
         });
-        
-        // Explosion Emitter (for Exploder enemy)
         this.explodeEmitter = this.add.particles(0, 0, 'particle', {
             lifespan: 300, speed: {min: 100, max: 300}, scale: {start: 2, end: 0}, tint: 0xffaa00, quantity: 20, emitting: false
         });
 
         // --- Player ---
-        this.player = this.physics.add.sprite(GAME_WIDTH/2, GAME_HEIGHT/2, 'player');
+        this.player = this.physics.add.sprite(WORLD_WIDTH/2, WORLD_HEIGHT/2, 'player');
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
+
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
         // --- Inputs ---
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -366,6 +280,12 @@ class GameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        // FIX: Always align Upgrade UI to Camera to ensure Input Hit Areas match World Coordinates
+        if (this.upgradeContainer.visible) {
+            this.upgradeContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
+            this.upgradeContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
+        }
+
         if (this.isGameOver || this.isPaused || this.isChoosingUpgrade) return;
 
         this.survivalTime += delta / 1000;
@@ -386,7 +306,6 @@ class GameScene extends Phaser.Scene {
         // Spawning
         if (time > this.nextSpawnTime) {
             this.spawnEnemy();
-            // Dynamic spawn interval based on time
             const spawnDelay = Math.max(300, 2000 - this.survivalTime * 10);
             this.nextSpawnTime = time + spawnDelay;
         }
@@ -403,20 +322,18 @@ class GameScene extends Phaser.Scene {
             if (this.shieldTimer >= 20000) { // 20s
                 this.playerStats.shieldCharges = 1;
                 this.shieldTimer = 0;
-                // Visual cue
                 this.add.text(this.player.x, this.player.y - 20, '护盾恢复', FONT_STYLE).destroy({from: true});
             }
         }
-
         // Burning Aura
         if (this.playerStats.hasBurningAura) {
             this.burningAuraTimer += delta;
-            if (this.burningAuraTimer >= 1000) { // Tick every second
+            if (this.burningAuraTimer >= 1000) {
                 this.burningAuraTimer = 0;
                 const radius = 100;
                 this.enemies.getChildren().forEach(enemy => {
                     if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < radius) {
-                        this.damageEnemy(enemy, 1); // Small burn damage
+                        this.damageEnemy(enemy, 1);
                     }
                 });
             }
@@ -426,10 +343,7 @@ class GameScene extends Phaser.Scene {
     handlePlayerMovement(delta) {
         this.player.setVelocity(0);
 
-        // Dash Cooldown
-        if (this.playerStats.dashCooldown > 0) {
-            this.playerStats.dashCooldown -= delta;
-        }
+        if (this.playerStats.dashCooldown > 0) this.playerStats.dashCooldown -= delta;
 
         const left = this.cursors.left.isDown || this.wasd.left.isDown;
         const right = this.cursors.right.isDown || this.wasd.right.isDown;
@@ -441,26 +355,21 @@ class GameScene extends Phaser.Scene {
         if (left) dirX = -1; else if (right) dirX = 1;
         if (up) dirY = -1; else if (down) dirY = 1;
 
-        // Normalize
         if (dirX !== 0 || dirY !== 0) {
             const len = Math.sqrt(dirX*dirX + dirY*dirY);
             dirX /= len;
             dirY /= len;
         }
 
-        // Apply Dash
         if (dash && this.playerStats.dashUnlocked && this.playerStats.dashCooldown <= 0 && (dirX !== 0 || dirY !== 0)) {
             const dashDist = 100;
             this.player.x += dirX * dashDist;
             this.player.y += dirY * dashDist;
-            this.playerStats.dashCooldown = 3000; // 3s
-            // Bounds check
-            this.player.x = Phaser.Math.Clamp(this.player.x, 0, GAME_WIDTH);
-            this.player.y = Phaser.Math.Clamp(this.player.y, 0, GAME_HEIGHT);
-            // Trail effect
+            this.playerStats.dashCooldown = 3000; 
+            this.player.x = Phaser.Math.Clamp(this.player.x, 0, WORLD_WIDTH);
+            this.player.y = Phaser.Math.Clamp(this.player.y, 0, WORLD_HEIGHT);
             this.deathEmitter.emitParticleAt(this.player.x, this.player.y);
         } else {
-            // Normal move
             const speed = this.playerStats.speed;
             this.player.setVelocity(dirX * speed, dirY * speed);
         }
@@ -469,44 +378,28 @@ class GameScene extends Phaser.Scene {
     // --- Enemy Logic ---
 
     getSpawnWeights(t) {
-        // t in seconds
-        let w = {
-            normal: 0, fast: 0, tank: 0, exploder: 0, charger: 0, splitter: 0, buffer: 0, elite: 0, sniper: 0
-        };
-
-        // Base weights logic
-        if (t < 30) {
-            w.normal = 80; w.fast = 20;
-        } else if (t < 60) {
-            w.normal = 40; w.fast = 30; w.charger = 15; w.splitter = 15;
-        } else if (t < 90) {
-            w.normal = 20; w.fast = 20; w.tank = 20; w.buffer = 10; w.charger = 15; w.splitter = 15;
-        } else {
-            // Chaos
-            w.normal = 10; w.fast = 15; w.tank = 15; w.buffer = 10; w.charger = 10; w.splitter = 10; 
-            w.exploder = 10; w.elite = 5; w.sniper = 15;
-        }
+        let w = { normal: 0, fast: 0, tank: 0, exploder: 0, charger: 0, splitter: 0, buffer: 0, elite: 0, sniper: 0 };
+        if (t < 30) { w.normal = 80; w.fast = 20; } 
+        else if (t < 60) { w.normal = 40; w.fast = 30; w.charger = 15; w.splitter = 15; } 
+        else if (t < 90) { w.normal = 20; w.fast = 20; w.tank = 20; w.buffer = 10; w.charger = 15; w.splitter = 15; } 
+        else { w.normal = 10; w.fast = 15; w.tank = 15; w.buffer = 10; w.charger = 10; w.splitter = 10; w.exploder = 10; w.elite = 5; w.sniper = 15; }
         return w;
     }
 
     spawnEnemy() {
         const weights = this.getSpawnWeights(this.survivalTime);
-        // Convert weights to array for picking
         const pool = [];
         for (const [type, weight] of Object.entries(weights)) {
             for (let i = 0; i < weight; i++) pool.push(type);
         }
         const typeId = Phaser.Utils.Array.GetRandom(pool) || 'normal';
         
-        // Position
-        let x, y;
-        const edge = Phaser.Math.Between(0, 3);
-        switch(edge) {
-            case 0: x = Phaser.Math.Between(0, GAME_WIDTH); y = -20; break;
-            case 1: x = GAME_WIDTH + 20; y = Phaser.Math.Between(0, GAME_HEIGHT); break;
-            case 2: x = Phaser.Math.Between(0, GAME_WIDTH); y = GAME_HEIGHT + 20; break;
-            case 3: x = -20; y = Phaser.Math.Between(0, GAME_HEIGHT); break;
-        }
+        // Radial Spawn Logic (off-screen)
+        // Spawn between 300 and 500 px away from player
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const dist = Phaser.Math.Between(300, 450);
+        const x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 20, WORLD_WIDTH - 20);
+        const y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 20, WORLD_HEIGHT - 20);
 
         this.createEnemy(typeId, x, y);
     }
@@ -514,93 +407,63 @@ class GameScene extends Phaser.Scene {
     createEnemy(typeId, x, y, overrideProps = {}) {
         const def = ENEMY_TYPES[typeId];
         if (!def) return;
-
         const enemy = this.enemies.create(x, y, `enemy_${def.id}`);
-        enemy.def = def; // Reference to static definition
-        
-        // Instance properties
-        enemy.hp = def.hp + Math.floor(this.survivalTime / 60); // HP Scaling
+        enemy.def = def;
+        enemy.hp = def.hp + Math.floor(this.survivalTime / 60);
         enemy.speed = def.speed;
         enemy.typeId = def.id;
         enemy.isBuffed = false;
-        
-        // Special states
-        if (def.behavior === 'charger') {
-            enemy.chargeState = 'idle'; // idle, charging
-            enemy.chargeTimer = 0;
-        } else if (def.behavior === 'sniper') {
-            enemy.fireTimer = 0;
-        }
-
-        // Override if needed (e.g. small splitters)
+        if (def.behavior === 'charger') { enemy.chargeState = 'idle'; enemy.chargeTimer = 0; }
+        else if (def.behavior === 'sniper') { enemy.fireTimer = 0; }
         Object.assign(enemy, overrideProps);
-
-        enemy.setCollideWorldBounds(false);
+        enemy.setCollideWorldBounds(true); // Collide with world bounds
         return enemy;
     }
 
     updateEnemies(time, delta) {
-        // Identify buffers first to apply aura
         const buffers = this.enemies.getChildren().filter(e => e.typeId === 'buffer');
-
         this.enemies.getChildren().forEach(enemy => {
             if (!enemy.active) return;
 
-            // 1. Apply Time Slow Aura (Player skill)
             let speedMult = 1;
             if (this.playerStats.hasSlowAura) {
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
-                if (dist < 150) speedMult *= 0.7;
+                if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < 150) speedMult *= 0.7;
             }
-
-            // 2. Apply Buffer Enemy Aura
             enemy.isBuffed = false;
             buffers.forEach(buffer => {
                 if (buffer !== enemy) {
-                    const d = Phaser.Math.Distance.Between(buffer.x, buffer.y, enemy.x, enemy.y);
-                    if (d < buffer.def.auraRadius) {
+                    if (Phaser.Math.Distance.Between(buffer.x, buffer.y, enemy.x, enemy.y) < buffer.def.auraRadius) {
                         enemy.isBuffed = true;
                         speedMult *= buffer.def.buffSpeed;
                     }
                 }
             });
 
-            // 3. Behavior Update
-            const behavior = enemy.def.behavior;
             const finalSpeed = enemy.speed * speedMult;
-
-            if (behavior === 'chaser' || behavior === 'splitter' || behavior === 'buffer') {
+            if (enemy.def.behavior === 'chaser' || enemy.def.behavior === 'splitter' || enemy.def.behavior === 'buffer' || enemy.def.behavior === 'exploder' || enemy.def.behavior === 'elite') {
                 this.physics.moveToObject(enemy, this.player, finalSpeed);
             } 
-            else if (behavior === 'charger') {
+            else if (enemy.def.behavior === 'charger') {
                 enemy.chargeTimer += delta;
                 if (enemy.chargeState === 'idle') {
-                    this.physics.moveToObject(enemy, this.player, finalSpeed * 0.5); // Move slow
+                    this.physics.moveToObject(enemy, this.player, finalSpeed * 0.5);
                     if (enemy.chargeTimer > 3000) {
-                        // Prepare charge
                         enemy.chargeState = 'charging';
                         enemy.chargeTimer = 0;
-                        // Lock vector
                         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                         enemy.chargeVelX = Math.cos(angle) * enemy.def.chargeSpeed;
                         enemy.chargeVelY = Math.sin(angle) * enemy.def.chargeSpeed;
                     }
                 } else {
-                    // Charging
                     enemy.setVelocity(enemy.chargeVelX, enemy.chargeVelY);
-                    if (enemy.chargeTimer > 1000) {
-                        enemy.chargeState = 'idle';
-                        enemy.chargeTimer = 0;
-                    }
+                    if (enemy.chargeTimer > 1000) { enemy.chargeState = 'idle'; enemy.chargeTimer = 0; }
                 }
             }
-            else if (behavior === 'sniper') {
+            else if (enemy.def.behavior === 'sniper') {
                 const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-                if (dist > enemy.def.range) {
-                    this.physics.moveToObject(enemy, this.player, finalSpeed);
-                } else {
+                if (dist > enemy.def.range) { this.physics.moveToObject(enemy, this.player, finalSpeed); } 
+                else {
                     enemy.setVelocity(0);
-                    // Shoot
                     enemy.fireTimer += delta;
                     if (enemy.fireTimer > enemy.def.fireRate) {
                         enemy.fireTimer = 0;
@@ -617,13 +480,8 @@ class GameScene extends Phaser.Scene {
     }
 
     updateProjectiles() {
-        // Clean up
-        this.bullets.getChildren().forEach(b => {
-            if (!this.physics.world.bounds.contains(b.x, b.y)) b.destroy();
-        });
-        this.enemyBullets.getChildren().forEach(b => {
-            if (!this.physics.world.bounds.contains(b.x, b.y)) b.destroy();
-        });
+        this.bullets.getChildren().forEach(b => { if (!this.physics.world.bounds.contains(b.x, b.y)) b.destroy(); });
+        this.enemyBullets.getChildren().forEach(b => { if (!this.physics.world.bounds.contains(b.x, b.y)) b.destroy(); });
     }
 
     // --- Combat ---
@@ -654,9 +512,7 @@ class GameScene extends Phaser.Scene {
         bullet.setRotation(angle);
         bullet.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
         
-        // Calc damage
         let damage = this.weapon.damage * this.playerStats.damageMultiplier;
-        // Berserker check
         if (this.playerStats.isBerserker) {
             const missingHpPct = 1 - (this.playerStats.hp / this.playerStats.maxHp);
             damage *= (1 + 0.5 * missingHpPct);
@@ -666,60 +522,38 @@ class GameScene extends Phaser.Scene {
 
     handleBulletHitEnemy(bullet, enemy) {
         bullet.destroy();
-        
-        // Crit check
         let dmg = bullet.damage || 1;
-        let isCrit = false;
-        if (Math.random() < this.playerStats.critChance) {
-            dmg *= this.playerStats.critMultiplier;
-            isCrit = true;
-        }
-        
-        this.damageEnemy(enemy, dmg, isCrit);
+        if (Math.random() < this.playerStats.critChance) dmg *= this.playerStats.critMultiplier;
+        this.damageEnemy(enemy, dmg);
     }
 
     handleOrbitHitEnemy(orb, enemy) {
         if (enemy.invulnOrbit > 0) return;
-        enemy.invulnOrbit = 20; // frames
+        enemy.invulnOrbit = 20; 
         this.damageEnemy(enemy, this.weapon.orbitDamage);
     }
 
-    damageEnemy(enemy, amount, isCrit = false) {
+    damageEnemy(enemy, amount) {
         enemy.hp -= amount;
         enemy.setTint(0xffffff);
         this.time.delayedCall(50, () => { if (enemy.active) enemy.clearTint(); });
-
-        // Show damage text (optional simple one)
-        // const txt = this.add.text(enemy.x, enemy.y, Math.floor(amount), { fontSize: '10px', fill: isCrit ? '#ff0000' : '#fff' }).destroy({from:true});
-
-        if (enemy.hp <= 0) {
-            this.killEnemy(enemy);
-        }
+        if (enemy.hp <= 0) this.killEnemy(enemy);
     }
 
     killEnemy(enemy) {
         this.deathEmitter.emitParticleAt(enemy.x, enemy.y);
-        
-        // Special On Death Behaviors
-        if (enemy.def.behavior === 'exploder') {
-            this.explodeEnemy(enemy);
-        } else if (enemy.def.behavior === 'splitter' && enemy.def.isBig) {
-            // Split into 2 small ones
+        if (enemy.def.behavior === 'exploder') this.explodeEnemy(enemy);
+        else if (enemy.def.behavior === 'splitter' && enemy.def.isBig) {
             for(let i=0; i<enemy.def.splitCount; i++) {
                 this.createEnemy('splitter_small', enemy.x + Phaser.Math.Between(-10,10), enemy.y + Phaser.Math.Between(-10,10));
             }
         }
-
-        // Chain Lightning
         if (this.playerStats.hasChainLightning) {
             const targets = this.enemies.getChildren().filter(e => e !== enemy && e.active && Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 100).slice(0, 3);
-            targets.forEach(t => this.damageEnemy(t, 1)); // Low chain damage
+            targets.forEach(t => this.damageEnemy(t, 1));
         }
-
-        // Drop XP
         const gem = this.gems.create(enemy.x, enemy.y, 'gem');
         gem.setCircle(3);
-
         enemy.destroy();
         this.kills++;
         this.updateUI();
@@ -727,7 +561,6 @@ class GameScene extends Phaser.Scene {
 
     explodeEnemy(enemy) {
         this.explodeEmitter.emitParticleAt(enemy.x, enemy.y);
-        // Damage player if close
         if (Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y) < enemy.def.explodeRadius) {
             this.takePlayerDamage(enemy.def.explodeDamage);
         }
@@ -740,39 +573,24 @@ class GameScene extends Phaser.Scene {
 
     handleEnemyTouchPlayer(player, enemy) {
         let damage = enemy.def.damage;
-        if (enemy.def.behavior === 'charger' && enemy.chargeState === 'charging') {
-            damage = enemy.def.chargeDamage;
-        }
-        // Exploders explode on touch
-        if (enemy.def.behavior === 'exploder') {
-            this.killEnemy(enemy); // Will trigger explode logic
-            return; 
-        }
+        if (enemy.def.behavior === 'charger' && enemy.chargeState === 'charging') damage = enemy.def.chargeDamage;
+        if (enemy.def.behavior === 'exploder') { this.killEnemy(enemy); return; }
         this.takePlayerDamage(damage);
     }
 
     takePlayerDamage(amount) {
-        if (this.player.alpha < 1) return; // I-Frames
-
-        // Shield check
+        if (this.player.alpha < 1) return; 
         if (this.playerStats.shieldCharges > 0) {
             this.playerStats.shieldCharges--;
-            this.add.text(this.player.x, this.player.y - 20, '格挡!', FONT_STYLE).destroy(); // "Block!"
+            this.add.text(this.player.x, this.player.y - 20, '格挡!', FONT_STYLE).destroy(); 
             return;
         }
-
         this.playerStats.hp -= amount;
         this.updateUI();
-
         this.cameras.main.shake(100, 0.005);
         this.player.setTint(0xff0000);
         this.player.setAlpha(0.5);
-        this.time.delayedCall(500, () => {
-            if (this.player.active) {
-                this.player.clearTint();
-                this.player.setAlpha(1);
-            }
-        });
+        this.time.delayedCall(500, () => { if (this.player.active) { this.player.clearTint(); this.player.setAlpha(1); } });
 
         if (this.playerStats.hp <= 0) {
             this.isGameOver = true;
@@ -831,7 +649,7 @@ class GameScene extends Phaser.Scene {
         this.xpBarFill = this.add.rectangle((GAME_WIDTH - (GAME_WIDTH - 40)) / 2, GAME_HEIGHT - 10, 0, 8, COLOR_XP).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
         this.levelText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 22, '', FONT_STYLE).setOrigin(0.5).setScrollFactor(0).setDepth(102);
 
-        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, '暂停中 - 按 ESC 继续', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setVisible(false);
+        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, '暂停中 - 按 ESC 继续', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
         this.updateUI();
     }
 
@@ -845,18 +663,19 @@ class GameScene extends Phaser.Scene {
     }
 
     createUpgradeUI() {
-        this.upgradeContainer = this.add.container(0, 0).setDepth(500).setVisible(false);
-        const bg = this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.95);
-        const title = this.add.text(GAME_WIDTH/2, 30, '升级！请选择一个加点', { ...FONT_STYLE, fontSize: '20px', fill: '#ffff00' }).setOrigin(0.5);
+        // FIX: Remove setScrollFactor(0) from container so we can position it manually in World Space to match Camera
+        this.upgradeContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(500).setVisible(false);
+        
+        const bg = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.95);
+        const title = this.add.text(0, -100, '升级！请选择一个加点', { ...FONT_STYLE, fontSize: '20px', fill: '#ffff00' }).setOrigin(0.5);
         this.upgradeContainer.add([bg, title]);
 
         this.upgradeSlots = [];
-        // Create up to 4 slots (for Lucky God upgrade)
         for (let i = 0; i < 4; i++) {
-            const y = 70 + i * 50;
-            const card = this.add.rectangle(GAME_WIDTH/2, y, 360, 40, 0x333333).setInteractive();
-            const nameText = this.add.text(GAME_WIDTH/2, y - 8, '', { ...FONT_STYLE, fontSize: '14px', fill: '#ffff00' }).setOrigin(0.5);
-            const descText = this.add.text(GAME_WIDTH/2, y + 8, '', { ...FONT_STYLE, fontSize: '10px', fill: '#cccccc' }).setOrigin(0.5);
+            const y = -60 + i * 50;
+            const card = this.add.rectangle(0, y, 360, 40, 0x333333).setInteractive();
+            const nameText = this.add.text(0, y - 8, '', { ...FONT_STYLE, fontSize: '14px', fill: '#ffff00' }).setOrigin(0.5);
+            const descText = this.add.text(0, y + 8, '', { ...FONT_STYLE, fontSize: '10px', fill: '#cccccc' }).setOrigin(0.5);
             
             this.upgradeContainer.add([card, nameText, descText]);
             this.upgradeSlots.push({ card, nameText, descText, upgradeData: null });
@@ -883,8 +702,6 @@ class GameScene extends Phaser.Scene {
     }
 
     showUpgradePanel() {
-        // Weighted Random Selection
-        // Weights: Common = 5, Rare = 1
         let pool = [];
         this.upgradePool.forEach(up => {
             const w = up.rarity === 'rare' ? 1 : 5;
@@ -896,12 +713,10 @@ class GameScene extends Phaser.Scene {
             if (pool.length === 0) break;
             const pick = Phaser.Utils.Array.GetRandom(pool);
             choices.push(pick);
-            // Remove all instances of this upgrade from pool to avoid duplicates
             pool = pool.filter(p => p.id !== pick.id);
         }
 
-        // Populate UI
-        this.upgradeSlots.forEach(s => s.card.setVisible(false)); // Hide all first
+        this.upgradeSlots.forEach(s => s.card.setVisible(false)); 
         for (let i = 0; i < choices.length; i++) {
             const slot = this.upgradeSlots[i];
             const up = choices[i];
@@ -916,6 +731,10 @@ class GameScene extends Phaser.Scene {
         }
         
         this.upgradeContainer.setVisible(true);
+        
+        // Set initial position immediately
+        this.upgradeContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
+        this.upgradeContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
     }
 
     selectUpgrade(upgrade) {
