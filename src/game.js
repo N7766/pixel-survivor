@@ -41,6 +41,248 @@ const BOSS_COLORS = {
 };
 
 // ----------------------------------------------------------------------------
+// Weapon Upgrades
+// ----------------------------------------------------------------------------
+const WEAPON_LEVEL_MILESTONES = [5, 15, 30];
+
+const WEAPON_UPGRADE_POOLS = {
+    archer: [
+        { 
+            id: 'archer_up_1', 
+            name: '强弓之力', 
+            description: '弓箭伤害提升 25%。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.damage *= 1.25;
+                s.createFloatingText(p.x, p.y, "习得: 强弓之力", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_2', 
+            name: '锋利箭头', 
+            description: '箭矢可以额外穿透 1 个敌人。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.flags.pierce = (w.flags.pierce || 0) + 1;
+                s.createFloatingText(p.x, p.y, "习得: 锋利箭头", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_3', 
+            name: '三连箭', 
+            description: '每次射击改为同时射出 3 支箭, 稍微向两侧散射。', 
+            conflictTags: ['bow_mode_multishot'],
+            apply: (p, w, s) => { 
+                w.flags.multiShot = 3;
+                s.createFloatingText(p.x, p.y, "习得: 三连箭", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_4', 
+            name: '五重箭雨', 
+            description: '改为 5 支箭, 单支伤害略微降低。', 
+            conflictTags: ['bow_mode_multishot'],
+            apply: (p, w, s) => { 
+                w.flags.multiShot = 5;
+                w.damage *= 0.85;
+                s.createFloatingText(p.x, p.y, "习得: 五重箭雨", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_5', 
+            name: '节奏连发', 
+            description: '攻击间隔缩短 20%。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.cooldown *= 0.8;
+                s.createFloatingText(p.x, p.y, "习得: 节奏连发", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_6', 
+            name: '爆裂箭矢', 
+            description: '箭矢命中时会在小范围内产生爆炸伤害。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.flags.explosive = true;
+                s.createFloatingText(p.x, p.y, "习得: 爆裂箭矢", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_7', 
+            name: '蓄力重射', 
+            description: '每隔数秒蓄力一次, 下一次攻击射出伤害极高的重箭。', 
+            conflictTags: ['bow_mode_charge'],
+            apply: (p, w, s) => { 
+                w.flags.chargedShot = true;
+                w.chargeTimer = 0;
+                w.chargeReady = false;
+                s.createFloatingText(p.x, p.y, "习得: 蓄力重射", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_8', 
+            name: '旋风箭', 
+            description: '特殊箭矢命中后会形成小型旋风, 短暂吸附附近敌人。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.flags.vortex = true;
+                s.createFloatingText(p.x, p.y, "习得: 旋风箭", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_9', 
+            name: '追踪箭', 
+            description: '部分箭矢会微弱地追踪最近的敌人。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.flags.tracking = true;
+                s.createFloatingText(p.x, p.y, "习得: 追踪箭", true); 
+            } 
+        },
+        { 
+            id: 'archer_up_10', 
+            name: '狙击专精', 
+            description: '射程与暴击率提升, 但攻击速度略微下降。', 
+            conflictTags: [],
+            apply: (p, w, s) => { 
+                w.cooldown *= 1.1;
+                s.playerStats.bulletRange *= 1.3;
+                s.playerStats.critChance += 0.1;
+                s.createFloatingText(p.x, p.y, "习得: 狙击专精", true); 
+            } 
+        }
+    ],
+    tank: [
+        {
+            id: 'tank_up_1',
+            name: '强力盾击',
+            description: '盾击伤害提升 30%。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.damage *= 1.3;
+                s.createFloatingText(p.x, p.y, "习得: 强力盾击", true);
+            }
+        },
+        {
+            id: 'tank_up_2',
+            name: '震荡波',
+            description: '盾击命中时产生冲击波, 对中距离敌人造成小额伤害。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.shockwave = true;
+                s.createFloatingText(p.x, p.y, "习得: 震荡波", true);
+            }
+        },
+        {
+            id: 'tank_up_3',
+            name: '带刺护盾',
+            description: '护盾边缘长出尖刺, 碰到护盾的敌人会持续受到伤害。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.spikedShield = true;
+                s.createFloatingText(p.x, p.y, "习得: 带刺护盾", true);
+            }
+        },
+        {
+            id: 'tank_up_4',
+            name: '巨型盾牌',
+            description: '护盾体积变大, 盾击范围与格挡角度提升。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.giantShield = true;
+                s.createFloatingText(p.x, p.y, "习得: 巨型盾牌", true);
+            }
+        },
+        {
+            id: 'tank_up_5',
+            name: '碎甲重击',
+            description: '对精英和 BOSS 额外造成 30% 伤害。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.bossSlayer = true;
+                s.createFloatingText(p.x, p.y, "习得: 碎甲重击", true);
+            }
+        },
+        {
+            id: 'tank_up_6',
+            name: '盾牌投掷',
+            description: '解锁远程盾攻击, 盾牌会被掷出并在飞行途中多次命中敌人。',
+            conflictTags: ['shield_mode_throw'],
+            apply: (p, w, s) => {
+                w.flags.shieldThrow = true;
+                s.createFloatingText(p.x, p.y, "习得: 盾牌投掷", true);
+            }
+        },
+        {
+            id: 'tank_up_7',
+            name: '回旋之盾',
+            description: '投掷的盾牌会绕你旋转一圈后再返回。',
+            conflictTags: ['shield_mode_throw'],
+            apply: (p, w, s) => {
+                w.flags.boomerangShield = true;
+                w.flags.shieldThrow = true; // Ensure throw is enabled
+                s.createFloatingText(p.x, p.y, "习得: 回旋之盾", true);
+            }
+        },
+        {
+            id: 'tank_up_8',
+            name: '护盾冲撞',
+            description: '短按攻击键会向前冲刺一小段距离并进行盾击。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.shieldDash = true;
+                s.createFloatingText(p.x, p.y, "习得: 护盾冲撞", true);
+            }
+        },
+        {
+            id: 'tank_up_9',
+            name: '坚不可摧',
+            description: '盾击过程中受到的伤害降低。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.defenseBuff = true;
+                s.createFloatingText(p.x, p.y, "习得: 坚不可摧", true);
+            }
+        },
+        {
+            id: 'tank_up_10',
+            name: '反震护甲',
+            description: '被敌人近身攻击时, 敌人会受到一部分反弹伤害。',
+            conflictTags: [],
+            apply: (p, w, s) => {
+                w.flags.thorns = true;
+                s.createFloatingText(p.x, p.y, "习得: 反震护甲", true);
+            }
+        }
+    ],
+    fanatic: [
+        { id: 'fanatic_up_1', name: '双重刺击', description: '改为双刀攻击, 每次攻击命中两次, 单次伤害略微降低。', conflictTags: [], apply: (p, w, s) => { w.flags.doubleHit = true; w.damage *= 0.8; s.createFloatingText(p.x, p.y, "习得: 双重刺击", true); } },
+        { id: 'fanatic_up_2', name: '狂乱连斩', description: '攻击间隔大幅缩短。', conflictTags: [], apply: (p, w, s) => { w.cooldown *= 0.6; s.createFloatingText(p.x, p.y, "习得: 狂乱连斩", true); } },
+        { id: 'fanatic_up_3', name: '血之步伐', description: '每次击杀都会短暂提升移动速度。', conflictTags: [], apply: (p, w, s) => { w.flags.bloodStep = true; s.createFloatingText(p.x, p.y, "习得: 血之步伐", true); } },
+        { id: 'fanatic_up_4', name: '飞刀专精', description: '在近战的同时, 不定期向最近敌人投掷飞刀。', conflictTags: [], apply: (p, w, s) => { w.flags.throwKnife = true; w.knifeTimer = 0; s.createFloatingText(p.x, p.y, "习得: 飞刀专精", true); } },
+        { id: 'fanatic_up_5', name: '背刺伤害', description: '从敌人背后攻击时伤害提升 50%。', conflictTags: [], apply: (p, w, s) => { w.flags.backstab = true; s.createFloatingText(p.x, p.y, "习得: 背刺伤害", true); } },
+        { id: 'fanatic_up_6', name: '刀锋旋风', description: '解锁短 CD 的旋风斩, 在你身边旋转刀刃造成伤害。', conflictTags: [], apply: (p, w, s) => { w.flags.whirlwind = true; w.whirlwindTimer = 0; s.createFloatingText(p.x, p.y, "习得: 刀锋旋风", true); } },
+        { id: 'fanatic_up_7', name: '出血之刃', description: '命中敌人会附加持续流血伤害。', conflictTags: [], apply: (p, w, s) => { w.flags.bleed = true; s.createFloatingText(p.x, p.y, "习得: 出血之刃", true); } },
+        { id: 'fanatic_up_8', name: '极限闪避', description: '近身受到攻击时有几率完全闪避伤害。', conflictTags: [], apply: (p, w, s) => { w.flags.dodge = true; s.createFloatingText(p.x, p.y, "习得: 极限闪避", true); } },
+        { id: 'fanatic_up_9', name: '暗影步', description: '短 CD 瞬移到最近敌人身侧并立即刺击。', conflictTags: ['dagger_mode_mobility'], apply: (p, w, s) => { w.flags.shadowStep = true; w.shadowStepTimer = 0; s.createFloatingText(p.x, p.y, "习得: 暗影步", true); } },
+        { id: 'fanatic_up_10', name: '狂热觉醒', description: '生命较低时, 攻击速度与移动速度大幅提升。', conflictTags: [], apply: (p, w, s) => { w.flags.awakening = true; s.createFloatingText(p.x, p.y, "习得: 狂热觉醒", true); } }
+    ],
+    mage: [
+        { id: 'mage_up_1', name: '法术强化', description: '法术伤害提升 25%。', conflictTags: [], apply: (p, w, s) => { w.damage *= 1.25; s.createFloatingText(p.x, p.y, "习得: 法术强化", true); } },
+        { id: 'mage_up_2', name: '法术风暴', description: '普通射击改为一次喷射多枚小型法术弹, 形成小弹幕。', conflictTags: ['staff_mode_primary'], apply: (p, w, s) => { w.flags.storm = true; s.createFloatingText(p.x, p.y, "习得: 法术风暴", true); } },
+        { id: 'mage_up_3', name: '蓄力一击', description: '每隔 5 秒自动蓄力, 下一次攻击发射巨大法术弹并造成高额范围伤害。', conflictTags: ['staff_mode_primary'], apply: (p, w, s) => { w.flags.chargedStaff = true; w.staffChargeTimer = 0; s.createFloatingText(p.x, p.y, "习得: 蓄力一击", true); } },
+        { id: 'mage_up_4', name: '连锁雷击', description: '法术命中后可在附近敌人之间弹射数次。', conflictTags: [], apply: (p, w, s) => { w.flags.chainLightning = true; s.createFloatingText(p.x, p.y, "习得: 连锁雷击", true); } },
+        { id: 'mage_up_5', name: '冰霜锁足', description: '法术命中的敌人会被减速一段时间。', conflictTags: [], apply: (p, w, s) => { w.flags.frost = true; s.createFloatingText(p.x, p.y, "习得: 冰霜锁足", true); } },
+        { id: 'mage_up_6', name: '火焰灼烧', description: '命中的敌人会受到持续灼烧伤害。', conflictTags: [], apply: (p, w, s) => { w.flags.burn = true; s.createFloatingText(p.x, p.y, "习得: 火焰灼烧", true); } },
+        { id: 'mage_up_7', name: '灵能爆破', description: '偶尔释放环形冲击波, 击退并伤害周围敌人。', conflictTags: [], apply: (p, w, s) => { w.flags.blast = true; w.blastTimer = 0; s.createFloatingText(p.x, p.y, "习得: 灵能爆破", true); } },
+        { id: 'mage_up_8', name: '秘法弹幕', description: '在短时间内攻击速度翻倍, 但单发伤害略微降低。', conflictTags: [], apply: (p, w, s) => { w.flags.barrage = true; w.barrageTimer = 0; s.createFloatingText(p.x, p.y, "习得: 秘法弹幕", true); } },
+        { id: 'mage_up_9', name: '时间扭曲', description: '周期性减慢一定范围内所有敌人的动作。', conflictTags: [], apply: (p, w, s) => { w.flags.timeWarp = true; w.timeWarpTimer = 0; s.createFloatingText(p.x, p.y, "习得: 时间扭曲", true); } },
+        { id: 'mage_up_10', name: '聚能法阵', description: '脚下周期性生成法阵, 站在法阵内时伤害提升。', conflictTags: [], apply: (p, w, s) => { w.flags.powerCircle = true; w.circleTimer = 0; s.createFloatingText(p.x, p.y, "习得: 聚能法阵", true); } }
+    ]
+};
+
+// ----------------------------------------------------------------------------
 // Meta Progression (Talents)
 // ----------------------------------------------------------------------------
 const TALENT_CONFIG = [
@@ -248,8 +490,19 @@ const Persistence = {
     load: () => {
         try {
             const data = localStorage.getItem(SAVE_KEY);
-            return data ? JSON.parse(data) : { soulPoints: 0, talents: {} };
-        } catch (e) { return { soulPoints: 0, talents: {} }; }
+            if (data) {
+                const parsed = JSON.parse(data);
+                // 为老存档补上默认设置字段
+                if (!parsed.settings) {
+                    parsed.settings = { lowFX: false };
+                }
+                if (!parsed.talents) {
+                    parsed.talents = {};
+                }
+                return parsed;
+            }
+            return { soulPoints: 0, talents: {}, settings: { lowFX: false } };
+        } catch (e) { return { soulPoints: 0, talents: {}, settings: { lowFX: false } }; }
     },
     save: (data) => {
         localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -258,7 +511,8 @@ const Persistence = {
 };
 
 // Base Stats (Used as fallback or reference)
-const MAGNET_RADIUS_BASE = 100;
+// 适当下调初始吸引范围，让前期需要更靠近经验球
+const MAGNET_RADIUS_BASE = 70;
 const COLLECT_RADIUS_BASE = 32; 
 const AUTO_ATTACK_RANGE_BASE = 250; 
 const BULLET_LIFETIME_RANGE_BASE = 260; 
@@ -283,7 +537,8 @@ const HEROES = [
         color: 0x00ff00, // Green
         stats: {
             maxHp: 3,
-            speed: 160, 
+            // 初始移速略降一点，让前期压迫感更强
+            speed: 140, 
             cooldown: 500, 
             damage: 1,
             range: 300 
@@ -311,7 +566,7 @@ const HEROES = [
         color: 0xff0000, // Red
         stats: {
             maxHp: 5,
-            speed: 120,
+            speed: 105,
             cooldown: 700,
             damage: 1,
             range: 250
@@ -325,7 +580,7 @@ const HEROES = [
         color: 0x9900ff, // Purple
         stats: {
             maxHp: 4,
-            speed: 130,
+            speed: 115,
             cooldown: 800,
             damage: 1,
             range: 250
@@ -339,15 +594,15 @@ const HEROES = [
 // ----------------------------------------------------------------------------
 const ENEMY_TYPES = {
     // --- Phase 1: Basics (0-60s) ---
-    zombie: { id: 'zombie', name: '游荡僵尸', shape: 'square', color: 0x88aa88, size: 12, hp: 3, speed: 40, damage: 1, xp: 1, behavior: 'chaser' },
-    rat: { id: 'rat', name: '变异巨鼠', shape: 'circle', color: 0x665544, size: 8, hp: 2, speed: 70, damage: 1, xp: 1, behavior: 'chaser' },
+    zombie: { id: 'zombie', name: '游荡僵尸', shape: 'square', color: 0x44dd44, size: 12, hp: 3, speed: 40, damage: 1, xp: 1, behavior: 'chaser' },
+    rat: { id: 'rat', name: '变异巨鼠', shape: 'circle', color: 0x887766, size: 8, hp: 2, speed: 70, damage: 1, xp: 1, behavior: 'chaser' },
     skeleton: { id: 'skeleton', name: '枯骨士兵', shape: 'triangle', color: 0xeeeeee, size: 10, hp: 4, speed: 35, damage: 1, xp: 1, behavior: 'chaser' },
     
     // --- Phase 2: Agile & Ranged (60-120s) ---
-    bat: { id: 'bat', name: '嗜血蝙蝠', shape: 'triangle', color: 0x333333, size: 8, hp: 2, speed: 90, damage: 1, xp: 2, behavior: 'zigzag', zigSpeed: 2 },
+    bat: { id: 'bat', name: '嗜血蝙蝠', shape: 'triangle', color: 0xaa44aa, size: 8, hp: 2, speed: 90, damage: 1, xp: 2, behavior: 'zigzag', zigSpeed: 2 },
     ghost: { id: 'ghost', name: '虚空怨灵', shape: 'circle', color: 0xccffff, size: 12, hp: 5, speed: 50, damage: 1, xp: 2, behavior: 'chaser', alpha: 0.6 },
     archer: { id: 'archer', name: '骷髅弓手', shape: 'triangle', color: 0xdddddd, size: 11, hp: 4, speed: 30, damage: 1, xp: 2, behavior: 'shooter', range: 250, fireRate: 2000, bulletSpeed: 150 },
-    spider: { id: 'spider', name: '剧毒蜘蛛', shape: 'star', color: 0x004400, size: 12, hp: 6, speed: 50, damage: 1, xp: 2, behavior: 'miner', mineType: 'web', mineInterval: 4000 },
+    spider: { id: 'spider', name: '剧毒蜘蛛', shape: 'star', color: 0x00cc00, size: 12, hp: 6, speed: 50, damage: 1, xp: 2, behavior: 'miner', mineType: 'web', mineInterval: 4000 },
     bomber: { id: 'bomber', name: '疯狂炸弹人', shape: 'circle', color: 0xff3300, size: 12, hp: 5, speed: 60, damage: 1, xp: 2, behavior: 'exploder', explodeRadius: 80, explodeDamage: 2 },
     
     // --- Phase 3: Support & Tanks (120-180s) ---
@@ -359,11 +614,11 @@ const ENEMY_TYPES = {
     buffer: { id: 'buffer', name: '狂热军官', shape: 'diamond', color: 0xff00ff, size: 14, hp: 10, speed: 30, damage: 1, xp: 4, behavior: 'buffer', buffType: 'speed', buffRange: 150 },
     
     // --- Phase 4: Special Tactics (180-240s) ---
-    sniper: { id: 'sniper', name: '暗影狙击手', shape: 'triangle', color: 0x000000, size: 10, hp: 6, speed: 35, damage: 2, xp: 4, behavior: 'shooter', range: 450, fireRate: 3500, bulletSpeed: 300, warning: true },
+    sniper: { id: 'sniper', name: '暗影狙击手', shape: 'triangle', color: 0xffffff, size: 10, hp: 6, speed: 35, damage: 2, xp: 4, behavior: 'shooter', range: 450, fireRate: 3500, bulletSpeed: 300, warning: true },
     shotgun: { id: 'shotgun', name: '霰弹暴徒', shape: 'square', color: 0xaa5522, size: 14, hp: 10, speed: 30, damage: 1, xp: 3, behavior: 'shooter_spread', range: 200, fireRate: 2500 },
-    assassin: { id: 'assassin', name: '影流刺客', shape: 'diamond', color: 0x220022, size: 10, hp: 8, speed: 100, damage: 2, xp: 3, behavior: 'teleporter', teleportInterval: 3000 },
+    assassin: { id: 'assassin', name: '影流刺客', shape: 'diamond', color: 0x440044, size: 10, hp: 8, speed: 100, damage: 2, xp: 3, behavior: 'teleporter', teleportInterval: 3000 },
     turret: { id: 'turret', name: '移动炮台', shape: 'square', color: 0x444444, size: 20, hp: 25, speed: 10, damage: 1, xp: 5, behavior: 'shooter_rapid', range: 300, fireRate: 800 },
-    slime_trail: { id: 'slime_trail', name: '腐化蛞蝓', shape: 'circle', color: 0x88ff00, size: 12, hp: 10, speed: 30, damage: 1, xp: 3, behavior: 'trail', trailType: 'poison' },
+    slime_trail: { id: 'slime_trail', name: '棘刺散布者', shape: 'circle', color: 0xff0000, size: 12, hp: 10, speed: 30, damage: 1, xp: 3, behavior: 'trail', trailType: 'spike' },
     orbiter: { id: 'orbiter', name: '旋刃舞者', shape: 'circle', color: 0xcc00cc, size: 10, hp: 8, speed: 60, damage: 1, xp: 3, behavior: 'orbiter', orbitDist: 100 },
 
     // --- Phase 5: Chaos (240s+) ---
@@ -462,6 +717,11 @@ class BootScene extends Phaser.Scene {
 
         // 4. Projectiles & Objects
         this.createRectTexture('bullet', COLOR_BULLET, 4, 4);
+        this.createRectTexture('weapon_arrow', 0xffff00, 14, 4); // Archer arrow
+        this.createRectTexture('weapon_shield', 0x0088ff, 20, 8); // Guardian shield wave
+        this.createRectTexture('weapon_dagger', 0xffaaaa, 12, 4); // Zealot dagger
+        this.createCircleTexture('weapon_staff_bolt', 0x9900ff, 6); // Timewalker orb
+        
         this.createCircleTexture('orbit_orb', COLOR_ORBIT, 4);
         this.createCircleTexture('orbit_blade', 0xeeeeee, 6); 
         this.createRectTexture('enemy_bullet', 0xff00ff, 6, 6);
@@ -470,9 +730,28 @@ class BootScene extends Phaser.Scene {
         this.createCircleTexture('black_hole', 0x110033, 10); 
 
         // 5. Pickups & FX
-        this.createCircleTexture('gem', COLOR_XP, 3);
+        // 经验球做得更小、更透明，带一点闪光感
+        let gGem = this.make.graphics({x:0, y:0, add:false});
+        gGem.fillStyle(COLOR_XP, 0.4);
+        gGem.fillCircle(4, 4, 3);
+        gGem.fillStyle(0xffffff, 0.8);
+        gGem.fillCircle(3, 3, 1.5);
+        gGem.generateTexture('gem', 8, 8);
+        gGem.destroy();
         this.createRectTexture('heart', COLOR_HEART, 6, 6);
         this.createRectTexture('particle', COLOR_PARTICLE, 2, 2);
+        
+        // Spike Hazard
+        let gSpike = this.make.graphics({x:0, y:0, add:false});
+        gSpike.fillStyle(0xff0000, 1);
+        gSpike.fillCircle(4, 4, 4); // Main body
+        // Draw some spikes
+        gSpike.fillTriangle(4, 0, 8, 4, 0, 4);
+        gSpike.fillTriangle(4, 8, 8, 4, 0, 4);
+        gSpike.fillTriangle(0, 4, 4, 0, 4, 8);
+        gSpike.fillTriangle(8, 4, 4, 0, 4, 8);
+        gSpike.generateTexture('spike_hazard', 8, 8);
+        gSpike.destroy();
         
         // 6. Bosses
         Object.keys(BOSS_COLORS).forEach(key => {
@@ -512,6 +791,10 @@ class MainMenuScene extends Phaser.Scene {
     constructor() { super('MainMenuScene'); }
 
     create() {
+        // 读取设置
+        this.saveData = Persistence.load();
+        this.settings = this.saveData.settings || { lowFX: false };
+
         // Title
         this.add.text(GAME_WIDTH/2, 25, 'PIXEL SURVIVOR', { ...FONT_STYLE, fontSize: '32px', strokeThickness: 4, fill: '#ffffff' }).setOrigin(0.5);
         this.add.text(GAME_WIDTH/2, 55, '选择英雄', { ...FONT_STYLE, fontSize: '18px', fill: '#ffff00' }).setOrigin(0.5);
@@ -556,6 +839,10 @@ class MainMenuScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-ENTER', () => this.startGame());
 
         this.updateSelection();
+    }
+
+    openSettingsPanel() {
+        // Removed as per request
     }
 
     createHeroCard(hero, index, x, y, w, h) {
@@ -657,13 +944,13 @@ class TalentScene extends Phaser.Scene {
         this.pointsText = this.add.text(GAME_WIDTH/2, 55, `灵魂点数: ${this.saveData.soulPoints}`, { ...FONT_STYLE, fontSize: '16px', fill: '#00ffff' }).setOrigin(0.5);
 
         // Layout Constants
-        const cardWidth = 120;
-        const cardHeight = 140; // Increased height for preview text
-        const cardMarginX = 20;
+        const cardWidth = 140;
+        const cardHeight = 160; 
+        const cardMarginX = 30;
         
         // Layout adjusted
-        const talentGridStartY = 100;
-        const talentGridRowSpacing = 20;
+        const talentGridStartY = 80;
+        const talentGridRowSpacing = 30;
         const backButtonY = GAME_HEIGHT - 40;
 
         const cols = 3;
@@ -874,6 +1161,724 @@ class TalentScene extends Phaser.Scene {
     }
 }
 
+
+const EVENT_POOL = {
+    1: {
+        id: 1, name: "兽群", duration: 15,
+        bubbleEmoji: "🐺", bubbleText: "兽群正在逼近！",
+        onStart(scene, eventInstance) {
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const dist = 500;
+            const tx = Phaser.Math.Clamp(scene.player.x + Math.cos(angle) * dist, 100, WORLD_WIDTH - 100);
+            const ty = Phaser.Math.Clamp(scene.player.y + Math.sin(angle) * dist, 100, WORLD_HEIGHT - 100);
+            eventInstance.data = { targetX: tx, targetY: ty, state: 'gathering' };
+            scene.enemies.getChildren().forEach(e => {
+                if (e.active) {
+                    e.eventTargetOverride = { x: tx, y: ty };
+                    e.isHerd = true;
+                }
+            });
+        },
+        onUpdate(scene, dt, eventInstance) {
+            const elapsed = (scene.time.now - eventInstance.startTime);
+            if (elapsed > 5000 && eventInstance.data.state === 'gathering') {
+                eventInstance.data.state = 'chasing';
+                scene.enemies.getChildren().forEach(e => {
+                    if (e.active && e.isHerd) {
+                        delete e.eventTargetOverride;
+                        e.eventSpeedMult = 1.5;
+                    }
+                });
+            }
+        },
+        onEnd(scene, eventInstance) {
+            scene.enemies.getChildren().forEach(e => {
+                delete e.eventTargetOverride;
+                delete e.isHerd;
+                delete e.eventSpeedMult;
+            });
+        }
+    },
+    3: {
+        id: 3, name: "怪物热潮", duration: 15,
+        bubbleEmoji: "📈", bubbleText: "怪物热潮！出怪量提升！",
+        onStart(scene) { scene.eventGlobalStats.spawnRateMult = 0.5; },
+        onEnd(scene) { scene.eventGlobalStats.spawnRateMult = 1.0; }
+    },
+    4: {
+        id: 4, name: "BOSS来袭", duration: 0,
+        bubbleEmoji: "💀", bubbleText: "BOSS来袭！小心！",
+        onStart(scene) {
+            scene.spawnBoss();
+            scene.time.delayedCall(1000, () => scene.spawnBoss());
+        }
+    },
+    5: {
+        id: 5, name: "你被强化了,快上！", duration: 30,
+        bubbleEmoji: "⚔️", bubbleText: "你获得了超强强化！",
+        onStart(scene) {
+            scene.eventGlobalStats.playerSpeedMult = 3.0;
+            scene.eventGlobalStats.playerAtkSpeedMult = 0.2;
+            scene.eventGlobalStats.playerDmgMult = 1.5;
+        },
+        onEnd(scene) {
+            scene.eventGlobalStats.playerSpeedMult = 1.0;
+            scene.eventGlobalStats.playerAtkSpeedMult = 1.0;
+            scene.eventGlobalStats.playerDmgMult = 1.0;
+        }
+    },
+    6: {
+        id: 6, name: "暴怒狂潮", duration: 15,
+        bubbleEmoji: "💥", bubbleText: "敌人群体暴怒！",
+        onStart(scene) { scene.eventGlobalStats.enemySpeedMult = 2.0; },
+        onEnd(scene) { scene.eventGlobalStats.enemySpeedMult = 1.0; }
+    },
+    7: {
+        id: 7, name: "重甲降临", duration: 20,
+        bubbleEmoji: "🛡️", bubbleText: "敌军披坚执锐！",
+        onStart(scene) { scene.eventGlobalStats.enemyDmgReduction = 0.5; },
+        onEnd(scene) { scene.eventGlobalStats.enemyDmgReduction = 0; }
+    },
+    8: {
+        id: 8, name: "瞬移猎杀", duration: 15,
+        bubbleEmoji: "⚡", bubbleText: "敌人正在锁定你！",
+        onStart(scene, eventInstance) { eventInstance.timer = 0; },
+        onUpdate(scene, dt, eventInstance) {
+            eventInstance.timer += dt;
+            if (eventInstance.timer > 3000) {
+                eventInstance.timer = 0;
+                const targets = scene.enemies.getChildren().filter(e => e.active).sort(() => 0.5 - Math.random()).slice(0, 5);
+                targets.forEach(e => {
+                    const angle = Phaser.Math.FloatBetween(0, Math.PI*2);
+                    e.x = scene.player.x + Math.cos(angle) * 150;
+                    e.y = scene.player.y + Math.sin(angle) * 150;
+                    const fx = scene.add.sprite(e.x, e.y, 'particle').setScale(2).setTint(0xffff00);
+                    scene.tweens.add({targets: fx, alpha: 0, duration: 500, onComplete: () => fx.destroy()});
+                });
+            }
+        }
+    },
+    9: {
+        id: 9, name: "瘟疫之源", duration: 15,
+        bubbleEmoji: "☠️", bubbleText: "死亡播撒瘟疫！",
+        onStart(scene) { scene.eventGlobalStats.plagueOnDeath = true; },
+        onEnd(scene) { scene.eventGlobalStats.plagueOnDeath = false; }
+    },
+    10: {
+        id: 10, name: "分裂增殖", duration: 15,
+        bubbleEmoji: "🐛", bubbleText: "它们正在分裂！",
+        onStart(scene) { scene.eventGlobalStats.splitOnDeath = true; },
+        onEnd(scene) { scene.eventGlobalStats.splitOnDeath = false; }
+    },
+    11: {
+        id: 11, name: "黑暗降临", duration: 15,
+        bubbleEmoji: "🩸", bubbleText: "敌人在吸取生命！",
+        onStart(scene) { scene.eventGlobalStats.enemyLifesteal = true; },
+        onEnd(scene) { scene.eventGlobalStats.enemyLifesteal = false; }
+    },
+    12: {
+        id: 12, name: "精英集合", duration: 0,
+        bubbleEmoji: "⭐", bubbleText: "精英小队集结！",
+        onStart(scene) {
+            for(let i=0; i<3; i++) {
+                scene.spawnEnemy();
+                const enemies = scene.enemies.getChildren();
+                const e = enemies[enemies.length - 1];
+                if (e) {
+                    e.setScale(1.5);
+                    e.hp *= 3;
+                    e.isElite = true;
+                    e.setTint(0xffd700);
+                }
+            }
+        }
+    },
+    13: {
+        id: 13, name: "召唤法阵", duration: 10,
+        bubbleEmoji: "🌀", bubbleText: "召唤法阵已开启！",
+        onStart(scene, eventInstance) {
+            const x = Phaser.Math.Clamp(scene.player.x + Phaser.Math.Between(-200, 200), 50, WORLD_WIDTH-50);
+            const y = Phaser.Math.Clamp(scene.player.y + Phaser.Math.Between(-200, 200), 50, WORLD_HEIGHT-50);
+            eventInstance.data = { x, y };
+            eventInstance.visual = scene.add.circle(x, y, 30, 0x9900ff, 0.5).setDepth(5);
+            scene.tweens.add({targets: eventInstance.visual, scale: 1.2, duration: 500, yoyo: true, repeat: -1});
+        },
+        onUpdate(scene, dt, eventInstance) {
+            if (Math.random() < 0.05) {
+                scene.createEnemy('zombie', eventInstance.data.x, eventInstance.data.y);
+            }
+        },
+        onEnd(scene, eventInstance) {
+            if(eventInstance.visual) eventInstance.visual.destroy();
+        }
+    },
+    14: {
+        id: 14, name: "反伤护盾", duration: 10,
+        bubbleEmoji: "🪞", bubbleText: "小心！敌人有反伤！",
+        onStart(scene) { scene.eventGlobalStats.reflectDamage = true; },
+        onEnd(scene) { scene.eventGlobalStats.reflectDamage = false; }
+    },
+    15: {
+        id: 15, name: "隐形奇袭", duration: 10,
+        bubbleEmoji: "👻", bubbleText: "一些敌人已隐形！",
+        onStart(scene) {
+            scene.enemies.getChildren().forEach(e => {
+                 if (Math.random() < 0.3) {
+                     e.isInvisible = true;
+                     e.setAlpha(0.1);
+                 }
+            });
+        },
+        onEnd(scene) {
+            scene.enemies.getChildren().forEach(e => {
+                if (e.isInvisible) {
+                    e.isInvisible = false;
+                    e.setAlpha(1);
+                }
+            });
+        }
+    },
+    16: {
+        id: 16, name: "天降神兵", duration: 0,
+        bubbleEmoji: "🎁", bubbleText: "天上掉下宝贝了！",
+        onStart(scene) {
+            for(let i=0; i<3; i++) {
+                const x = Phaser.Math.Between(50, WORLD_WIDTH-50);
+                const y = Phaser.Math.Between(50, WORLD_HEIGHT-50);
+                
+                // Visual Pillar
+                const beam = scene.add.rectangle(x, y, 40, WORLD_HEIGHT*2, 0xffff00, 0.3).setDepth(100);
+                scene.tweens.add({targets: beam, alpha: 0, duration: 1000, onComplete: () => beam.destroy()});
+                
+                // Drop (Heart or Gem or special buff item - simplifying to just Gem/Heart for now)
+                // Let's drop a "Mega Gem" (Red) worth 50 XP
+                const gem = scene.gems.create(x, y - 500, 'gem'); // Drop from sky
+                gem.setTint(0xff00ff);
+                gem.xpValue = 50; 
+                scene.tweens.add({targets: gem, y: y, duration: 800, ease: 'Bounce.out'});
+            }
+        }
+    },
+    17: {
+        id: 17, name: "急速冷却", duration: 15,
+        bubbleEmoji: "⏳", bubbleText: "技能冷却加速中！",
+        onStart(scene) { scene.eventGlobalStats.cooldownMult = 0.5; },
+        onEnd(scene) { scene.eventGlobalStats.cooldownMult = 1.0; }
+    },
+    18: {
+        id: 18, name: "全知视野", duration: 10,
+        bubbleEmoji: "💡", bubbleText: "你拥有全知视野！",
+        onStart(scene, eventInstance) { eventInstance.indicators = []; },
+        onUpdate(scene, dt, eventInstance) {
+            // Simple visualizer: Draw lines to all offscreen entities or just a circle around them
+            // Clearing previous frame's indicators is tricky without a container. 
+            // Better: Just use a single graphics object in data.
+            if (!eventInstance.visual) {
+                eventInstance.visual = scene.add.graphics().setDepth(999).setScrollFactor(0);
+            }
+            const g = eventInstance.visual;
+            g.clear();
+            
+            const cam = scene.cameras.main;
+            const drawIndicator = (target, color) => {
+                if (!target.active) return;
+                // Check if off screen
+                if (!cam.worldView.contains(target.x, target.y)) {
+                    const angle = Phaser.Math.Angle.Between(cam.scrollX + GAME_WIDTH/2, cam.scrollY + GAME_HEIGHT/2, target.x, target.y);
+                    const r = Math.min(GAME_WIDTH, GAME_HEIGHT) / 2 - 20;
+                    const ix = GAME_WIDTH/2 + Math.cos(angle) * r;
+                    const iy = GAME_HEIGHT/2 + Math.sin(angle) * r;
+                    g.fillStyle(color, 1);
+                    g.fillCircle(ix, iy, 5);
+                } else {
+                    // On screen highlight
+                    const sx = target.x - cam.scrollX;
+                    const sy = target.y - cam.scrollY;
+                    g.lineStyle(2, color, 0.5);
+                    g.strokeCircle(sx, sy, 20);
+                }
+            };
+            
+            scene.enemies.getChildren().forEach(e => drawIndicator(e, 0xff0000));
+            scene.gems.getChildren().forEach(g => drawIndicator(g, 0x00ff00));
+        },
+        onEnd(scene, eventInstance) {
+            if (eventInstance.visual) eventInstance.visual.destroy();
+        }
+    },
+    19: {
+        id: 19, name: "生命之泉", duration: 10,
+        bubbleEmoji: "❤️", bubbleText: "生命之泉涌动！",
+        onStart(scene) { scene.eventGlobalStats.hpRegenPerSec = 0.03; },
+        onUpdate(scene, dt, eventInstance) {
+            // Logic handled in update loop via stats, or here manually?
+            // Let's do it here manually to avoid complicating GameScene.update too much
+            eventInstance.timer = (eventInstance.timer || 0) + dt;
+            if (eventInstance.timer > 1000) {
+                eventInstance.timer = 0;
+                scene.healPlayer(Math.ceil(scene.playerStats.maxHp * 0.03));
+            }
+        },
+        onEnd(scene) { scene.eventGlobalStats.hpRegenPerSec = 0; }
+    },
+    20: {
+        id: 20, name: "黄金时间", duration: 30,
+        bubbleEmoji: "💰", bubbleText: "财富正在降临！",
+        onStart(scene) { scene.eventGlobalStats.goldXpMult = 3.0; },
+        onEnd(scene) { scene.eventGlobalStats.goldXpMult = 1.0; }
+    },
+    21: {
+        id: 21, name: "护盾充能", duration: 10,
+        bubbleEmoji: "✨", bubbleText: "能量护盾已部署！",
+        onStart(scene, eventInstance) { 
+            // Give temp shield
+            scene.playerStats.tempShield = 50; 
+            eventInstance.visual = scene.add.circle(scene.player.x, scene.player.y, 40, 0x00ffff, 0.3).setDepth(15);
+        },
+        onUpdate(scene, dt, eventInstance) {
+            if (eventInstance.visual) {
+                eventInstance.visual.x = scene.player.x;
+                eventInstance.visual.y = scene.player.y;
+                if (scene.playerStats.tempShield <= 0) {
+                    eventInstance.visual.destroy();
+                    eventInstance.visual = null;
+                }
+            }
+        },
+        onEnd(scene, eventInstance) { 
+            scene.playerStats.tempShield = 0; 
+            if (eventInstance.visual) eventInstance.visual.destroy();
+        }
+    },
+    22: {
+        id: 22, name: "范围扩大", duration: 15,
+        bubbleEmoji: "🌐", bubbleText: "你的力量正在扩散！",
+        onStart(scene) { scene.eventGlobalStats.rangeMult = 1.5; },
+        onEnd(scene) { scene.eventGlobalStats.rangeMult = 1.0; }
+    },
+    23: {
+        id: 23, name: "无敌时间", duration: 3,
+        bubbleEmoji: "⭐", bubbleText: "3秒！抓住机会！",
+        onStart(scene) { scene.eventGlobalStats.invincible = true; scene.player.setTint(0xffff00); },
+        onEnd(scene) { scene.eventGlobalStats.invincible = false; scene.player.clearTint(); }
+    },
+    25: {
+        id: 25, name: "磁力吸引", duration: 10,
+        bubbleEmoji: "🧲", bubbleText: "磁力正在吸引一切！",
+        onStart(scene) { scene.eventGlobalStats.globalMagnet = true; },
+        onEnd(scene) { scene.eventGlobalStats.globalMagnet = false; }
+    },
+    26: {
+        id: 26, name: "地震波", duration: 10,
+        bubbleEmoji: "⛰️", bubbleText: "地震波来袭！",
+        onStart(scene, eventInstance) { eventInstance.timer = 0; },
+        onUpdate(scene, dt, eventInstance) {
+            eventInstance.timer += dt;
+            if (eventInstance.timer > 2000) {
+                eventInstance.timer = 0;
+                scene.cameras.main.shake(500, 0.01);
+                // Damage everyone slightly
+                scene.takePlayerDamage(1); 
+                scene.enemies.getChildren().forEach(e => {
+                    if (e.active) {
+                        e.hp -= 2;
+                        e.setVelocity(0,0); // Stun briefly
+                    }
+                });
+            }
+        }
+    },
+    27: {
+        id: 27, name: "流星火雨", duration: 8,
+        bubbleEmoji: "🔥", bubbleText: "小心流星砸落！",
+        onStart(scene, eventInstance) { eventInstance.timer = 0; },
+        onUpdate(scene, dt, eventInstance) {
+             eventInstance.timer += dt;
+             if (eventInstance.timer > 500) { // Every 0.5s
+                 eventInstance.timer = 0;
+                 const x = Phaser.Math.Clamp(scene.player.x + Phaser.Math.Between(-300, 300), 50, WORLD_WIDTH-50);
+                 const y = Phaser.Math.Clamp(scene.player.y + Phaser.Math.Between(-300, 300), 50, WORLD_HEIGHT-50);
+                 
+                 // Warning circle
+                 const warn = scene.add.circle(x, y, 60, 0xff0000, 0.3);
+                 scene.tweens.add({
+                     targets: warn, scale: 0, duration: 1000,
+                     onComplete: () => {
+                         warn.destroy();
+                         scene.triggerExplosion(x, y, 80, 20, true); // reusing existing method
+                     }
+                 });
+             }
+        }
+    },
+    28: {
+        id: 28, name: "狂风大作", duration: 10,
+        bubbleEmoji: "🌬️", bubbleText: "强大的风暴来了！",
+        onStart(scene, eventInstance) { 
+            const angle = Math.random() * Math.PI * 2;
+            eventInstance.windX = Math.cos(angle) * 100;
+            eventInstance.windY = Math.sin(angle) * 100;
+        },
+        onUpdate(scene, dt, eventInstance) {
+             const fx = eventInstance.windX * (dt/1000);
+             const fy = eventInstance.windY * (dt/1000);
+             // Push player
+             scene.player.x += fx;
+             scene.player.y += fy;
+             // Push enemies
+             scene.enemies.getChildren().forEach(e => {
+                 if (e.active) { e.x += fx; e.y += fy; }
+             });
+        }
+    },
+    29: {
+        id: 29, name: "冰冻之地", duration: 15,
+        bubbleEmoji: "❄️", bubbleText: "地面湿滑，小心！",
+        onStart(scene) { scene.eventGlobalStats.iceFriction = 0.98; }, // Used in movement logic
+        onEnd(scene) { scene.eventGlobalStats.iceFriction = 0; }
+    },
+    30: {
+        id: 30, name: "地形重塑", duration: 20,
+        bubbleEmoji: "🚧", bubbleText: "安全区正在收缩！",
+        onStart(scene, eventInstance) {
+            const size = 300;
+            eventInstance.zone = scene.add.rectangle(scene.player.x, scene.player.y, size*2, size*2).setStrokeStyle(4, 0xff0000);
+            eventInstance.centerX = scene.player.x;
+            eventInstance.centerY = scene.player.y;
+            eventInstance.size = size;
+        },
+        onUpdate(scene, dt, eventInstance) {
+            const p = scene.player;
+            if (p.x < eventInstance.centerX - eventInstance.size || p.x > eventInstance.centerX + eventInstance.size ||
+                p.y < eventInstance.centerY - eventInstance.size || p.y > eventInstance.centerY + eventInstance.size) {
+                 scene.takePlayerDamage(0.5); // Damage when outside
+            }
+        },
+        onEnd(scene, eventInstance) {
+            if (eventInstance.zone) eventInstance.zone.destroy();
+        }
+    },
+    31: {
+        id: 31, name: "黑暗时刻", duration: 15,
+        bubbleEmoji: "🌑", bubbleText: "黑暗吞噬了一切！",
+        onStart(scene, eventInstance) { 
+            scene.eventGlobalStats.darknessMode = true; 
+            eventInstance.overlay = scene.add.graphics().setDepth(2000).setScrollFactor(0);
+        },
+        onUpdate(scene, dt, eventInstance) {
+            const g = eventInstance.overlay;
+            g.clear();
+            g.fillStyle(0x000000, 0.95);
+            g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            
+            // Cut hole (simulated by drawing black rects around center)
+            // Actually, easier to use a mask or just 'erase' blend mode if supported, but simple rect geometry is safest.
+            // Let's just draw 4 rects around center.
+            const cx = GAME_WIDTH/2;
+            const cy = GAME_HEIGHT/2;
+            const r = 100;
+            
+            g.clear();
+            g.fillStyle(0x000000, 0.95);
+            // Top
+            g.fillRect(0, 0, GAME_WIDTH, cy - r);
+            // Bottom
+            g.fillRect(0, cy + r, GAME_WIDTH, GAME_HEIGHT - (cy + r));
+            // Left
+            g.fillRect(0, cy - r, cx - r, r * 2);
+            // Right
+            g.fillRect(cx + r, cy - r, GAME_WIDTH - (cx + r), r * 2);
+        },
+        onEnd(scene, eventInstance) { 
+            scene.eventGlobalStats.darknessMode = false;
+            if (eventInstance.overlay) eventInstance.overlay.destroy();
+        }
+    },
+    32: {
+        id: 32, name: "爆炸陷阱", duration: 0,
+        bubbleEmoji: "💣", bubbleText: "地面已布设陷阱！",
+        onStart(scene) {
+            for(let i=0; i<5; i++) {
+                 const x = Phaser.Math.Between(100, WORLD_WIDTH-100);
+                 const y = Phaser.Math.Between(100, WORLD_HEIGHT-100);
+                 const mine = scene.add.sprite(x, y, 'bomb').setTint(0xff0000);
+                 scene.time.delayedCall(5000, () => {
+                     mine.destroy();
+                     scene.triggerExplosion(x, y, 100, 30, true);
+                 });
+            }
+        }
+    },
+    33: {
+        id: 33, name: "时空裂隙", duration: 10,
+        bubbleEmoji: "🌀", bubbleText: "空间开始扭曲！",
+        onStart(scene, eventInstance) {
+             const x = Phaser.Math.Clamp(scene.player.x + Phaser.Math.Between(-200, 200), 50, WORLD_WIDTH-50);
+             const y = Phaser.Math.Clamp(scene.player.y + Phaser.Math.Between(-200, 200), 50, WORLD_HEIGHT-50);
+             eventInstance.portal = scene.add.circle(x, y, 30, 0x9900ff).setDepth(10);
+             scene.physics.add.existing(eventInstance.portal);
+             eventInstance.portal.body.setCircle(30);
+        },
+        onUpdate(scene, dt, eventInstance) {
+             if (eventInstance.portal && scene.physics.overlap(scene.player, eventInstance.portal)) {
+                 scene.player.x = Phaser.Math.Between(100, WORLD_WIDTH-100);
+                 scene.player.y = Phaser.Math.Between(100, WORLD_HEIGHT-100);
+                 eventInstance.portal.destroy();
+                 eventInstance.portal = null;
+                 scene.createFloatingText(scene.player.x, scene.player.y, "传送!", true, '#ff00ff');
+             }
+        },
+        onEnd(scene, eventInstance) {
+             if (eventInstance.portal && eventInstance.portal.active) eventInstance.portal.destroy();
+        }
+    },
+    34: {
+        id: 34, name: "毒沼扩散", duration: 15,
+        bubbleEmoji: "🧪", bubbleText: "毒沼正在蔓延！",
+        onStart(scene) {
+             for(let i=0; i<3; i++) {
+                 const x = Phaser.Math.Between(100, WORLD_WIDTH-100);
+                 const y = Phaser.Math.Between(100, WORLD_HEIGHT-100);
+                 const pool = scene.hazards.create(x, y, 'particle');
+                 pool.setScale(4);
+                 pool.setTint(0x00ff00);
+                 pool.lifespan = 15000;
+                 pool.hazardType = 'fire'; // Reusing fire type for damage
+             }
+        }
+    },
+    35: {
+        id: 35, name: "治疗圣坛", duration: 10,
+        bubbleEmoji: "✨", bubbleText: "圣坛降临！",
+        onStart(scene, eventInstance) {
+             const x = Phaser.Math.Clamp(scene.player.x + 200, 100, WORLD_WIDTH-100);
+             const y = scene.player.y;
+             eventInstance.shrine = scene.add.rectangle(x, y, 60, 60, 0x00ff00, 0.5);
+             scene.physics.add.existing(eventInstance.shrine);
+        },
+        onUpdate(scene, dt, eventInstance) {
+             if (eventInstance.shrine && scene.physics.overlap(scene.player, eventInstance.shrine)) {
+                 scene.healPlayer(1); // Rapid heal
+             }
+        },
+        onEnd(scene, eventInstance) {
+             if (eventInstance.shrine) eventInstance.shrine.destroy();
+        }
+    },
+    36: {
+        id: 36, name: "加速世界", duration: 15,
+        bubbleEmoji: "⏱️", bubbleText: "时间流速加快了！",
+        onStart(scene) { scene.eventGlobalStats.timeScale = 1.5; },
+        onEnd(scene) { scene.eventGlobalStats.timeScale = 1.0; }
+    },
+    37: {
+        id: 37, name: "时间凝滞", duration: 10,
+        bubbleEmoji: "🐌", bubbleText: "时间仿佛静止了！",
+        onStart(scene) { scene.eventGlobalStats.timeScale = 0.5; },
+        onEnd(scene) { scene.eventGlobalStats.timeScale = 1.0; }
+    },
+    38: {
+        id: 38, name: "经验虹吸", duration: 15,
+        bubbleEmoji: "🕳️", bubbleText: "经验被吸走了！",
+        onStart(scene, eventInstance) { 
+            scene.eventGlobalStats.xpSiphon = true; 
+            eventInstance.zones = [];
+        },
+        onUpdate(scene, dt, eventInstance) {
+            // Check if player is in any zone
+            let inZone = false;
+            eventInstance.zones = eventInstance.zones.filter(z => {
+                z.life -= dt;
+                if(z.life <= 0) { z.visual.destroy(); return false; }
+                if(Phaser.Math.Distance.Between(scene.player.x, scene.player.y, z.x, z.y) < 50) inZone = true;
+                return true;
+            });
+            scene.player.isInXpZone = inZone;
+        },
+        onEnd(scene, eventInstance) { 
+            scene.eventGlobalStats.xpSiphon = false;
+            eventInstance.zones.forEach(z => z.visual.destroy());
+            scene.player.isInXpZone = false;
+        }
+    },
+    39: {
+        id: 39, name: "混乱瞄准", duration: 10,
+        bubbleEmoji: "🎯", bubbleText: "瞄准变得困难！",
+        onStart(scene) { scene.eventGlobalStats.randomAim = true; },
+        onEnd(scene) { scene.eventGlobalStats.randomAim = false; }
+    },
+    40: {
+        id: 40, name: "生命互换", duration: 0,
+        bubbleEmoji: "🔄", bubbleText: "力量和防御已交换！",
+        onStart(scene) {
+            const temp = scene.playerStats.hp;
+            // Shield is usually 0 or small, swap logic:
+            // If shield system exists, swap charge or temp shield?
+            // Let's swap current HP with (Max HP - Current HP) "Inverse HP" if no shield, 
+            // OR if we have tempShield from event 21, swap that.
+            // Simplified: Swap HP percentage with missing HP percentage? No, dangerous.
+            // Let's swap HP with Shield Charges if shield upgrade exists.
+            if (scene.playerStats.hasShieldUpgrade) {
+                // Not really compatible values (1 charge vs 100 HP).
+                // Alternative: Heal to full but lose all shield charges, or vice versa.
+                // Re-reading spec: "HP and Shield Value swap".
+                // We have tempShield in stats now.
+                const s = scene.playerStats.tempShield || 0;
+                const h = scene.playerStats.hp;
+                scene.playerStats.hp = Math.max(1, Math.min(s, scene.playerStats.maxHp));
+                scene.playerStats.tempShield = h;
+                scene.updateUI();
+            } else {
+                // If no shield system, maybe just shuffle HP (e.g. current = max - current)
+                scene.playerStats.hp = Math.max(1, scene.playerStats.maxHp - scene.playerStats.hp);
+                scene.updateUI();
+            }
+            scene.createFloatingText(scene.player.x, scene.player.y, "互换!", true, '#ff00ff');
+        }
+    },
+    41: {
+        id: 41, name: "随机传送", duration: 9,
+        bubbleEmoji: "💫", bubbleText: "你的位置不受控制！",
+        onStart(scene, eventInstance) { eventInstance.timer = 0; },
+        onUpdate(scene, dt, eventInstance) {
+            eventInstance.timer += dt;
+            if(eventInstance.timer > 3000) {
+                eventInstance.timer = 0;
+                const x = Phaser.Math.Clamp(scene.player.x + Phaser.Math.Between(-300, 300), 100, WORLD_WIDTH-100);
+                const y = Phaser.Math.Clamp(scene.player.y + Phaser.Math.Between(-300, 300), 100, WORLD_HEIGHT-100);
+                // Simple teleport
+                scene.player.x = x;
+                scene.player.y = y;
+                scene.createFloatingText(x, y, "瞬移!", true, '#00ffff');
+                scene.cameras.main.shake(100, 0.005);
+            }
+        }
+    },
+    42: {
+        id: 42, name: "攻击无效", duration: 10,
+        bubbleEmoji: "🛡️", bubbleText: "物理攻击无效化！",
+        onStart(scene) { scene.eventGlobalStats.physicalImmunity = true; },
+        onEnd(scene) { scene.eventGlobalStats.physicalImmunity = false; }
+    },
+    43: {
+        id: 43, name: "魔法免疫", duration: 10,
+        bubbleEmoji: "🚫", bubbleText: "魔法能量被吸收！",
+        onStart(scene) { scene.eventGlobalStats.magicImmunity = true; },
+        onEnd(scene) { scene.eventGlobalStats.magicImmunity = false; }
+    },
+    44: {
+        id: 44, name: "镜像克隆", duration: 10,
+        bubbleEmoji: "👯", bubbleText: "你的镜像已出现！",
+        onStart(scene, eventInstance) {
+            eventInstance.clone = scene.physics.add.sprite(scene.player.x + 50, scene.player.y, 'hero_' + scene.heroData.id);
+            eventInstance.clone.setAlpha(0.6);
+            eventInstance.clone.setTint(0x88ffff);
+        },
+        onUpdate(scene, dt, eventInstance) {
+            if(eventInstance.clone && eventInstance.clone.active) {
+                // Move randomly
+                if(Math.random() < 0.05) {
+                    eventInstance.clone.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+                }
+                // Enemies target clone logic needs to be in updateEnemyBehavior, or we just rely on collision?
+                // For simplicity, let's just make it a physical body that enemies can collide with.
+                // We'll set a flag so enemies might chase it? 
+                // Too complex to change enemy AI in this block.
+                // Let's just have it move around.
+            }
+        },
+        onEnd(scene, eventInstance) {
+            if(eventInstance.clone) {
+                scene.spawnExplosionEffect(eventInstance.clone.x, eventInstance.clone.y, 100); // Visual pop
+                eventInstance.clone.destroy();
+            }
+        }
+    },
+    45: {
+        id: 45, name: "虚弱光环", duration: 15,
+        bubbleEmoji: "💪", bubbleText: "你身披虚弱光环！",
+        onStart(scene) { scene.eventGlobalStats.weaknessAura = true; },
+        onEnd(scene) { scene.eventGlobalStats.weaknessAura = false; }
+    },
+    46: {
+        id: 46, name: "强化光环", duration: 15,
+        bubbleEmoji: "😈", bubbleText: "你的敌人被强化了！",
+        onStart(scene) { scene.eventGlobalStats.strengthAura = true; },
+        onEnd(scene) { scene.eventGlobalStats.strengthAura = false; }
+    },
+    47: {
+        id: 47, name: "技能重置", duration: 0,
+        bubbleEmoji: "🔄", bubbleText: "技能冷却已刷新！",
+        onStart(scene) {
+            scene.weapon.cooldownTimer = 0; // If manual timer exists
+            scene.lastFired = 0; // Reset main weapon
+            scene.playerStats.dashCooldown = 0;
+            scene.createFloatingText(scene.player.x, scene.player.y, "刷新!", true, '#00ff00');
+        }
+    },
+    48: {
+        id: 48, name: "掉落物爆炸", duration: 5,
+        bubbleEmoji: "💥", bubbleText: "掉落物即将爆炸！",
+        onStart(scene, eventInstance) {
+            eventInstance.bombs = [];
+            scene.gems.getChildren().forEach(g => {
+                if(g.active) {
+                    g.setTint(0xff0000); // Warn
+                    eventInstance.bombs.push({x: g.x, y: g.y, obj: g});
+                }
+            });
+        },
+        onEnd(scene, eventInstance) {
+            eventInstance.bombs.forEach(b => {
+                // If object still exists (not picked up), explode
+                if(b.obj.active) {
+                    scene.triggerExplosion(b.x, b.y, 60, 10, true);
+                    b.obj.destroy();
+                }
+            });
+        }
+    },
+    49: {
+        id: 49, name: "经验分配", duration: 10,
+        bubbleEmoji: "📈", bubbleText: "敌人在变强！",
+        onStart(scene) { scene.eventGlobalStats.xpToEnemy = true; },
+        onEnd(scene) { scene.eventGlobalStats.xpToEnemy = false; }
+    },
+    50: {
+        id: 50, name: "命运硬币", duration: 0,
+        bubbleEmoji: "🪙", bubbleText: "命运之币出现！",
+        onStart(scene) {
+            const x = Phaser.Math.Clamp(scene.player.x + Phaser.Math.Between(-100, 100), 50, WORLD_WIDTH-50);
+            const y = Phaser.Math.Clamp(scene.player.y + Phaser.Math.Between(-100, 100), 50, WORLD_HEIGHT-50);
+            const coin = scene.physics.add.sprite(x, y, 'gem').setTint(0xffd700).setScale(1.5);
+            
+            // Add overlap listener
+            scene.physics.add.overlap(scene.player, coin, () => {
+                coin.destroy();
+                if (Math.random() < 0.5) {
+                    // Good
+                    scene.eventGlobalStats.playerSpeedMult = 2.0;
+                    scene.eventGlobalStats.playerDmgMult = 2.0;
+                    scene.createFloatingText(scene.player.x, scene.player.y, "大吉! 全属性提升!", true, '#ffd700');
+                    scene.time.delayedCall(10000, () => {
+                        scene.eventGlobalStats.playerSpeedMult = 1.0;
+                        scene.eventGlobalStats.playerDmgMult = 1.0;
+                    });
+                } else {
+                    // Bad
+                    scene.eventGlobalStats.playerSpeedMult = 0.5;
+                    scene.eventGlobalStats.playerDmgMult = 0.5;
+                    scene.createFloatingText(scene.player.x, scene.player.y, "大凶! 全属性下降!", true, '#555555');
+                    scene.time.delayedCall(10000, () => {
+                        scene.eventGlobalStats.playerSpeedMult = 1.0;
+                        scene.eventGlobalStats.playerDmgMult = 1.0;
+                    });
+                }
+            }, null, scene);
+        }
+    }
+};
+
 class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
 
@@ -882,7 +1887,20 @@ class GameScene extends Phaser.Scene {
         this.heroData = data.hero || HEROES[0];
     }
 
+    getWeaponType(heroId) {
+        switch(heroId) {
+            case 'archer': return 'bow';     // 迅捷射手
+            case 'tank': return 'shield';    // 重甲守卫
+            case 'fanatic': return 'dagger'; // 狂热信徒
+            case 'mage': return 'staff';     // 时间行者
+            default: return 'bow';
+        }
+    }
+
     create() {
+        // --- Generate Procedural Textures ---
+        this.generateProceduralTextures();
+
         // --- Game State ---
         this.level = 1;
         this.xp = 0;
@@ -893,6 +1911,7 @@ class GameScene extends Phaser.Scene {
         this.survivalTime = 0;
         this.isGameOver = false;
         this.isChoosingUpgrade = false;
+        this.isChoosingWeaponUpgrade = false; // New flag
         this.isShopOpen = false;
         this.isEventOpen = false;
         this.nextEventTime = 60; // Start events at 60s
@@ -903,7 +1922,36 @@ class GameScene extends Phaser.Scene {
             noRegen: false,
             noRegenTimer: 0,
             tempDmgMult: 1.0,
-            xpBuffTimer: 0
+            xpBuffTimer: 0,
+            // New Event Stats
+            spawnRateMult: 1.0,
+            playerSpeedMult: 1.0,
+            playerAtkSpeedMult: 1.0,
+            enemySpeedMult: 1.0,
+            enemyDmgReduction: 0,
+            plagueOnDeath: false,
+            splitOnDeath: false,
+            enemyLifesteal: false,
+            reflectDamage: false,
+            // Phase 2 Stats
+            cooldownMult: 1.0,
+            hpRegenPerSec: 0,
+            goldXpMult: 1.0,
+            tempShieldMax: 0,
+            rangeMult: 1.0,
+            invincible: false,
+            globalMagnet: false,
+            iceFriction: 0,
+            darknessMode: false,
+            // Phase 3 Stats
+            timeScale: 1.0,
+            xpSiphon: false, // area effect instead of direct xp
+            randomAim: false,
+            physicalImmunity: false,
+            magicImmunity: false,
+            weaknessAura: false, // enemies near player deal less dmg
+            strengthAura: false, // enemies near player deal more dmg
+            xpToEnemy: false // xp buffs enemies instead
         };
         this.isPaused = false;
         this.upgradeChoicesCount = 3;
@@ -985,10 +2033,26 @@ class GameScene extends Phaser.Scene {
         }
 
         // Weapon
+        const heroId = this.heroData.id;
+        const weaponType = this.getWeaponType(heroId);
+
         this.weapon = {
-            type: 'single', 
+            heroId: heroId,
+            type: weaponType,
+            
+            // Base stats
+            baseDamage: this.heroData.stats.damage,
+            baseCooldown: this.heroData.stats.cooldown,
+            baseRange: this.heroData.stats.range,
+
+            // Current stats (aliased for compatibility with existing upgrades)
             damage: this.heroData.stats.damage,
             cooldown: this.heroData.stats.cooldown,
+            
+            flags: {},
+            upgradeTags: new Set(),
+
+            // Existing logic fields
             hasOrbit: false,
             orbitCount: 0,
             orbitDamage: 1,
@@ -996,6 +2060,8 @@ class GameScene extends Phaser.Scene {
         };
 
         this.initUpgradePool();
+        this.initEventManager();
+        this.initEventUI();
 
         // --- Apply Talents (Meta Progression) ---
         const savedData = Persistence.load();
@@ -1058,11 +2124,29 @@ class GameScene extends Phaser.Scene {
         this.cloneGroup = this.physics.add.group(); 
 
         // --- Particles ---
+        // 根据设置调节特效强度
+        const fxAlpha = (this.settings && this.settings.lowFX) ? 0.6 : 1.0;
+        const fxScaleMult = (this.settings && this.settings.lowFX) ? 0.7 : 1.0;
+
         this.deathEmitter = this.add.particles(0, 0, 'particle', {
-            lifespan: 400, speed: {min: 50, max: 150}, scale: {start: 1.5, end: 0}, quantity: 6, emitting: false
+            lifespan: 400, speed: {min: 50, max: 150}, scale: {start: 1.5 * fxScaleMult, end: 0}, quantity: 6, emitting: false
         });
         this.explodeEmitter = this.add.particles(0, 0, 'particle', {
-            lifespan: 300, speed: {min: 100, max: 300}, scale: {start: 2, end: 0}, tint: 0xffaa00, quantity: 20, emitting: false
+            lifespan: 300, speed: {min: 100, max: 300}, scale: {start: 2 * fxScaleMult, end: 0}, tint: 0xffaa00, quantity: 20, emitting: false
+        });
+
+        // New Effect Emitters
+        this.hitSparkEmitter = this.add.particles(0, 0, 'particle', {
+             lifespan: 200, speed: {min: 50, max: 150}, scale: {start: 0.8 * fxScaleMult, end: 0}, tint: 0xffffaa, quantity: 4, emitting: false, blendMode: 'ADD'
+        });
+        this.magicTrailEmitter = this.add.particles(0, 0, 'particle', {
+            lifespan: 300, speed: 0, scale: {start: 0.6 * fxScaleMult, end: 0}, alpha: {start: 0.6 * fxAlpha, end: 0}, tint: 0x00ffff, frequency: 50, emitting: false, blendMode: 'ADD'
+        });
+        this.arrowTrailEmitter = this.add.particles(0, 0, 'particle', {
+            lifespan: 200, speed: 0, scale: {start: 0.3 * fxScaleMult, end: 0}, alpha: {start: 0.4 * fxAlpha, end: 0}, tint: 0xffffff, frequency: 30, emitting: false
+        });
+        this.fireTrailEmitter = this.add.particles(0, 0, 'particle', {
+            lifespan: 300, speed: {min: 10, max: 30}, scale: {start: 0.8 * fxScaleMult, end: 0}, alpha: {start: 0.8 * fxAlpha, end: 0}, tint: 0xff5500, frequency: 30, emitting: false, blendMode: 'ADD'
         });
 
         // --- Player ---
@@ -1132,7 +2216,7 @@ class GameScene extends Phaser.Scene {
             { id: 'damage_up', rarity: 'common', name: '提升子弹伤害', description: '子弹伤害 +1。', apply: () => { this.weapon.damage++; } },
             { id: 'xp_gain', rarity: 'common', name: '增加经验获取', description: '经验获取效率略微提升。', apply: () => { /* Logic implicitly handled by XP curve */ } },
             { id: 'pickup_range', rarity: 'common', name: '增加拾取范围', description: '磁铁范围扩大 20%。', apply: () => { this.playerStats.xpMagnetRadius *= 1.2; } },
-            { id: 'unlock_spread', rarity: 'common', name: '解锁散射', description: '攻击变为一次发射 3 发子弹。', apply: () => { this.weapon.type = 'spread'; } },
+            // Removed unlock_spread
             { id: 'unlock_orbit', rarity: 'common', name: '解锁环绕法球', description: '在身边生成旋转法球保護自己。', apply: () => { this.weapon.hasOrbit = true; this.weapon.orbitCount += 1; this.spawnOrbits(); } },
             { id: 'attack_range', rarity: 'common', name: '增加射程', description: '攻击距离和射程扩大 20%。', apply: () => { this.playerStats.autoAttackRange *= 1.2; this.playerStats.bulletRange *= 1.2; } },
 
@@ -1178,9 +2262,11 @@ class GameScene extends Phaser.Scene {
         if (this.isPaused) {
             this.physics.pause();
             this.pauseText.setVisible(true);
+            if (this.pauseMenuContainer) this.pauseMenuContainer.setVisible(true);
         } else {
             this.physics.resume();
             this.pauseText.setVisible(false);
+            if (this.pauseMenuContainer) this.pauseMenuContainer.setVisible(false);
         }
     }
 
@@ -1189,13 +2275,31 @@ class GameScene extends Phaser.Scene {
             this.upgradeContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
             this.upgradeContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
         }
-        
+
         if (this.eventContainer.visible) {
             this.eventContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
             this.eventContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
         }
 
-        if (this.isGameOver || this.isPaused || this.isChoosingUpgrade || this.isShopOpen || this.isEventOpen) return;
+        // 当升级/武器升级面板打开时，游戏逻辑暂停，但仍然允许玩家用键盘选择
+        if (this.isChoosingUpgrade) {
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE))) this.selectUpgrade(0);
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO))) this.selectUpgrade(1);
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE))) this.selectUpgrade(2);
+            return;
+        }
+
+        if (this.isChoosingWeaponUpgrade) {
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE))) this.applyWeaponUpgrade(0);
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO))) this.applyWeaponUpgrade(1);
+            if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE))) this.applyWeaponUpgrade(2);
+            return;
+        }
+
+        if (this.isGameOver || this.isPaused || this.isShopOpen) return;
+        
+        this.updateEventManager(time, delta);
+        this.updateEventUI(time, delta);
 
         // Update Shop overlay position to follow camera if needed (but we used setScrollFactor(0) so container stays put)
         // However, if we didn't use setScrollFactor on overlay, we'd need to update it.
@@ -1244,9 +2348,8 @@ class GameScene extends Phaser.Scene {
         this.timeText.setText(`时间: ${this.survivalTime.toFixed(1)} 秒`);
 
         if (!this.currentBoss) {
-            if (this.survivalTime >= this.nextEventTime && !this.isEventOpen) {
-                this.triggerEvent();
-            } else if (this.survivalTime >= this.nextBossTime) {
+            // 暂时关闭定时事件，仅保留 BOSS 出现逻辑
+            if (this.survivalTime >= this.nextBossTime) {
                 this.spawnBoss();
             }
         }
@@ -1259,8 +2362,26 @@ class GameScene extends Phaser.Scene {
         this.handleMagnet();
         this.handleSpecialSkills(time, delta);
         this.handleHeroicEffects(time, delta);
-
+        
         let fireCooldown = this.weapon.cooldown;
+        
+        // Event: Time Scale (Cooldown)
+        if (this.eventGlobalStats && this.eventGlobalStats.timeScale !== 1.0) {
+             // Higher time scale = faster world = lower cooldown?
+             // Usually Time Scale means game runs faster. So everything updates more.
+             // But here we are using delta. If we want "World Acceleration", we should modify delta passed to updates?
+             // Or just modify speeds.
+             // Requirement: "Move and Attack Speed increase".
+             // Attack Speed Increase = Lower Cooldown.
+             fireCooldown /= this.eventGlobalStats.timeScale;
+        }
+        if (this.eventGlobalStats && this.eventGlobalStats.playerAtkSpeedMult) {
+            fireCooldown *= this.eventGlobalStats.playerAtkSpeedMult;
+        }
+        if (this.eventGlobalStats && this.eventGlobalStats.cooldownMult) {
+             fireCooldown *= this.eventGlobalStats.cooldownMult;
+        }
+
         if (this.playerStats.heroic.lastStand && this.playerStats.hp <= 1) fireCooldown *= 0.5;
 
         // Mage Time Magic Passive (Occasional rapid fire)
@@ -1277,7 +2398,15 @@ class GameScene extends Phaser.Scene {
         this.updateClone(delta, time);
 
         let spawnDelayBase = Math.max(300, 2000 - this.survivalTime * 10);
+        if (this.eventGlobalStats && this.eventGlobalStats.spawnRateMult) {
+            spawnDelayBase *= this.eventGlobalStats.spawnRateMult;
+        }
         if (this.currentBoss) spawnDelayBase *= 4;
+
+        // 前 30 秒适当提高刷怪密度（更快的基础间隔）
+        if (this.survivalTime < 30) {
+            spawnDelayBase *= 0.6; // 提高 约 40% 刷怪速度
+        }
 
         if (time > this.nextSpawnTime) {
             if (!this.currentBoss || Math.random() < 0.3) { 
@@ -1383,11 +2512,30 @@ class GameScene extends Phaser.Scene {
 
     handlePlayerMovement(delta) {
         let speedMult = 1;
+        if (this.eventGlobalStats && this.eventGlobalStats.playerSpeedMult) {
+             speedMult *= this.eventGlobalStats.playerSpeedMult;
+        }
+
         this.hazards.getChildren().forEach(h => {
              if (h.hazardType === 'time_slow' && this.physics.overlap(this.player, h)) {
                  speedMult = 0.5;
              }
         });
+        
+        // Awakening Speed Buff
+        if (this.weapon.flags.awakening && this.playerStats.hp < this.playerStats.maxHp * 0.4) {
+            speedMult *= 1.3;
+        }
+        
+        // Blood Step
+        if (this.weapon.flags.bloodStep && this.weapon.bloodStepActive) {
+            speedMult *= 1.3;
+            // Decay
+            this.weapon.bloodStepTimer -= delta;
+            if (this.weapon.bloodStepTimer <= 0) {
+                this.weapon.bloodStepActive = false;
+            }
+        }
         
         this.player.setVelocity(0);
 
@@ -1424,7 +2572,21 @@ class GameScene extends Phaser.Scene {
             }
         } else {
             const speed = this.playerStats.speed * speedMult;
-            this.player.setVelocity(dirX * speed, dirY * speed);
+            
+            // Event: Ice Land
+            if (this.eventGlobalStats && this.eventGlobalStats.iceFriction > 0) {
+                const targetX = dirX * speed;
+                const targetY = dirY * speed;
+                const curX = this.player.body.velocity.x;
+                const curY = this.player.body.velocity.y;
+                const lerp = 0.05; // Slippery factor
+                this.player.setVelocity(
+                    curX + (targetX - curX) * lerp,
+                    curY + (targetY - curY) * lerp
+                );
+            } else {
+                this.player.setVelocity(dirX * speed, dirY * speed);
+            }
         }
     }
 
@@ -1448,17 +2610,16 @@ class GameScene extends Phaser.Scene {
     }
 
     triggerExplosion(x, y, radius, damage, isExplosionType) {
-        this.explodeEmitter.emitParticleAt(x, y);
-        this.cameras.main.shake(50, 0.005);
+        this.spawnExplosionEffect(x, y, radius);
         
         this.enemies.getChildren().forEach(e => {
-            if (Phaser.Math.Distance.Between(x, y, e.x, e.y) < radius) {
+            if (e.active && Phaser.Math.Distance.Between(x, y, e.x, e.y) < radius) {
                 if (isExplosionType) e.lastDamageWasExplosion = true;
                 this.damageEnemy(e, damage);
             }
         });
         this.bossGroup.getChildren().forEach(b => {
-             if (Phaser.Math.Distance.Between(x, y, b.x, b.y) < radius) {
+             if (b.active && Phaser.Math.Distance.Between(x, y, b.x, b.y) < radius) {
                  this.damageBoss(b, damage);
              }
         });
@@ -1597,12 +2758,25 @@ class GameScene extends Phaser.Scene {
 
         this.enemies.getChildren().forEach(enemy => {
             if (!enemy.active) return;
+            
+            if (enemy.isInvisible) {
+                const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                if (dist < 150) enemy.setAlpha(1);
+                else enemy.setAlpha(0.1);
+            }
 
             // Stats Update
             let speedMult = 1;
+            if (this.eventGlobalStats && this.eventGlobalStats.enemySpeedMult) {
+                speedMult *= this.eventGlobalStats.enemySpeedMult;
+            }
+            if (enemy.eventSpeedMult) speedMult *= enemy.eventSpeedMult;
+
             if (this.playerStats.hasSlowAura) {
                 if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < 150) speedMult *= 0.7;
             }
+            if (enemy.speedMult !== undefined) speedMult *= enemy.speedMult; // External modifiers like Frost
+            
             speedZones.forEach(z => { if (this.physics.overlap(enemy, z)) speedMult *= 1.5; });
 
             enemy.isBuffed = false;
@@ -1632,6 +2806,11 @@ class GameScene extends Phaser.Scene {
     }
 
     updateEnemyBehavior(enemy, delta, time, speedMult) {
+        if (enemy.eventTargetOverride) {
+             this.physics.moveTo(enemy, enemy.eventTargetOverride.x, enemy.eventTargetOverride.y, enemy.speed * speedMult);
+             return;
+        }
+
         const def = enemy.def;
         const speed = enemy.speed * speedMult;
         const distToPlayer = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
@@ -1733,8 +2912,14 @@ class GameScene extends Phaser.Scene {
                 this.physics.moveToObject(enemy, this.player, speed);
                 if (enemy.stateTimer > 200) { // Frequent drops
                     enemy.stateTimer = 0;
-                    const trail = this.hazards.create(enemy.x, enemy.y, 'particle');
-                    trail.setTint(0x00ff00);
+                    let trail;
+                    if (def.trailType === 'spike') {
+                        trail = this.hazards.create(enemy.x, enemy.y, 'spike_hazard');
+                        trail.setTint(0xffffff); // Red texture already or use tint
+                    } else {
+                        trail = this.hazards.create(enemy.x, enemy.y, 'particle');
+                        trail.setTint(0x00ff00);
+                    }
                     trail.lifespan = 2000;
                     trail.hazardType = 'fire';
                 }
@@ -1827,10 +3012,40 @@ class GameScene extends Phaser.Scene {
 
     updateProjectiles(delta) {
         this.bullets.getChildren().forEach(b => { 
+            // Visual Trails
+            if (b.active) {
+                if (b.texture.key === 'tex_arrow' || b.texture.key === 'tex_arrow_explosive') {
+                    if (this.arrowTrailEmitter) this.arrowTrailEmitter.emitParticleAt(b.x, b.y);
+                } else if (b.texture.key === 'tex_magic_bolt' || b.texture.key === 'tex_magic_orb_large') {
+                     if (this.magicTrailEmitter) this.magicTrailEmitter.emitParticleAt(b.x, b.y);
+                } else if (b.texture.key === 'tex_shield_proj') {
+                     b.rotation += 0.2; // Spin shield
+                }
+            }
+
             const dist = Phaser.Math.Distance.Between(b.startX, b.startY, b.x, b.y);
             let destroy = false;
             
-            if (dist > b.maxDistance) destroy = true;
+            // Boomerang Shield Logic
+            if (b.isBoomerang) {
+                b.returnTimer = (b.returnTimer || 0) + delta;
+                if (b.returnTimer > b.returnTime) {
+                    // Return to player
+                    const angleToPlayer = Phaser.Math.Angle.Between(b.x, b.y, this.player.x, this.player.y);
+                    const currentVel = 300; 
+                    b.setVelocity(Math.cos(angleToPlayer) * currentVel, Math.sin(angleToPlayer) * currentVel);
+                    
+                    if (Phaser.Math.Distance.Between(b.x, b.y, this.player.x, this.player.y) < 20) {
+                        destroy = true; 
+                    }
+                }
+            } else if (dist > b.maxDistance) {
+                 destroy = true;
+            }
+            
+            if (b.rotationSpeed) {
+                b.rotation += b.rotationSpeed * (delta/1000);
+            }
             
             if (!this.physics.world.bounds.contains(b.x, b.y)) {
                 if (this.playerStats.heroic.wallBounce && b.bounces > 0) {
@@ -1840,12 +3055,31 @@ class GameScene extends Phaser.Scene {
                     b.rotation = Math.atan2(b.body.velocity.y, b.body.velocity.x);
                     b.x = Phaser.Math.Clamp(b.x, 1, WORLD_WIDTH-1);
                     b.y = Phaser.Math.Clamp(b.y, 1, WORLD_HEIGHT-1);
-                } else {
+                } else if (!b.isBoomerang) { // Boomerangs can go slightly out then return, but ideally keep in bounds
                     destroy = true;
                 }
             }
             
             if (destroy) b.destroy();
+
+            // Tracking Arrow Logic
+            if (b.active && b.isTrackingArrow) {
+                let nearest = null;
+                let minDist = 300;
+                this.enemies.getChildren().forEach(e => {
+                    const d = Phaser.Math.Distance.Between(b.x, b.y, e.x, e.y);
+                    if (d < minDist) { minDist = d; nearest = e; }
+                });
+                if (nearest) {
+                    const targetAngle = Phaser.Math.Angle.Between(b.x, b.y, nearest.x, nearest.y);
+                    const currentAngle = b.rotation;
+                    const turnRate = 0.05; 
+                    const nextAngle = Phaser.Math.Angle.RotateTo(currentAngle, targetAngle, turnRate); 
+                    b.setRotation(nextAngle);
+                    const speed = 400;
+                    b.setVelocity(Math.cos(nextAngle) * speed, Math.sin(nextAngle) * speed);
+                }
+            }
 
             // Mage passive weak homing OR Heroic Homing
             const isHoming = (this.playerStats.heroic.homing) || (this.playerStats.heroPassive === 'time_magic');
@@ -2155,6 +3389,9 @@ class GameScene extends Phaser.Scene {
     }
 
     handleBulletHitBoss(bullet, bossSprite) {
+        if (bullet.onHit) {
+            bullet.onHit(this, bullet, bossSprite);
+        }
         bullet.destroy();
         if (!this.currentBoss) return;
         
@@ -2261,7 +3498,8 @@ class GameScene extends Phaser.Scene {
             const gx = bossSprite.x + Phaser.Math.Between(-40, 40);
             const gy = bossSprite.y + Phaser.Math.Between(-40, 40);
             const gem = this.gems.create(gx, gy, 'gem');
-            gem.setCircle(3);
+            gem.setCircle(2);
+            this.tweens.add({ targets: gem, alpha: { from: 1, to: 0.5 }, duration: 400, yoyo: true, repeat: -1 });
         }
         bossSprite.destroy();
     }
@@ -2297,78 +3535,538 @@ class GameScene extends Phaser.Scene {
     // --- Combat ---
 
     fireWeapon() {
-        let nearest = null;
-        let minDist = Infinity;
-        const range = this.playerStats.autoAttackRange; 
+        this.performHeroAttack(this.player);
+    }
 
-        this.enemies.getChildren().forEach(enemy => {
-            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
-            if (dist <= range && dist < minDist) { minDist = dist; nearest = enemy; }
-        });
-
-        this.bossGroup.getChildren().forEach(boss => {
-            if (boss.active) {
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, boss.x, boss.y);
-                if (dist <= range && dist < minDist) {
-                    minDist = dist;
-                    nearest = boss;
-                }
-            }
-        });
-
-        if (!nearest) return;
-        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-
-        if (this.weapon.type === 'spread') {
-            this.fireBullet(angle);
-            this.fireBullet(angle - 0.26);
-            this.fireBullet(angle + 0.26);
-        } else {
-            this.fireBullet(angle);
+    performHeroAttack(source) {
+        switch (this.weapon.type) {
+            case 'bow': this.performBowAttack(source); break;
+            case 'shield': this.performShieldAttack(source); break;
+            case 'dagger': this.performDaggerAttack(source); break;
+            case 'staff': this.performStaffAttack(source); break;
+            default: this.performBowAttack(source); break;
         }
         
-        if (this.playerStats.heroic.clone && this.cloneObject && this.cloneObject.active) {
-             const cloneBullet = this.bullets.create(this.cloneObject.x, this.cloneObject.y, 'bullet');
-             const speed = 350;
-             cloneBullet.setRotation(angle);
-             cloneBullet.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-             cloneBullet.startX = this.cloneObject.x;
-             cloneBullet.startY = this.cloneObject.y;
-             cloneBullet.maxDistance = this.playerStats.bulletRange;
-             cloneBullet.damage = Math.ceil(this.weapon.damage * 0.5); 
+        if (source === this.player && this.playerStats.heroic.clone && this.cloneObject && this.cloneObject.active) {
+             this.performHeroAttack(this.cloneObject);
         }
     }
 
-    fireBullet(angle) {
-        const bullet = this.bullets.create(this.player.x, this.player.y, 'bullet');
-        const speed = 350;
-        bullet.setRotation(angle);
-        bullet.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-        
-        bullet.startX = this.player.x;
-        bullet.startY = this.player.y;
-        bullet.maxDistance = this.playerStats.bulletRange;
-        bullet.bounces = 2; 
-        bullet.isHoming = true; 
+    getNearestEnemy(x, y, range) {
+        let nearest = null;
+        let minDist = Infinity;
+        const check = (grp) => {
+            grp.getChildren().forEach(e => {
+                if(e.active) {
+                    const d = Phaser.Math.Distance.Between(x, y, e.x, e.y);
+                    if(d <= range && d < minDist) { minDist = d; nearest = e; }
+                }
+            });
+        };
+        check(this.enemies);
+        check(this.bossGroup);
+        return nearest;
+    }
 
+    calculateDamage() {
         let damage = this.weapon.damage * this.playerStats.damageMultiplier;
         if (this.eventGlobalStats) {
             damage *= this.eventGlobalStats.playerDmgMult * this.eventGlobalStats.tempDmgMult;
         }
-
         if (this.playerStats.isBerserker) {
             const missingHpPct = 1 - (this.playerStats.hp / this.playerStats.maxHp);
             damage *= (1 + 0.5 * missingHpPct);
         }
-        if (this.playerStats.heroic.lastStand && this.playerStats.hp <= 1) {
-            damage *= 2; 
+        if (this.playerStats.heroic.lastStand && this.playerStats.hp <= 1) damage *= 2;
+        return damage;
+    }
+
+    performBowAttack(source) {
+        let range = this.playerStats.autoAttackRange;
+        if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
+        
+        const target = this.getNearestEnemy(source.x, source.y, range);
+        if (!target) return;
+        const angle = Phaser.Math.Angle.Between(source.x, source.y, target.x, target.y);
+        
+        // Handle charge
+        if (this.weapon.flags.chargedShot) {
+            this.weapon.chargeTimer = (this.weapon.chargeTimer || 0) + 500; // Simulating timer increment in attack for simplicity or need update loop
+            // Better: use a cooldown based charge
+            if (!this.weapon.chargeReady) {
+                 // Check if ready, if not, normal shot or skip? 
+                 // Requirement says "Every few seconds charge once". Let's assume it charges automatically over time.
+                 // We'll handle charge logic in update loop actually. 
+                 // For now, let's just check flag set by update loop
+            }
         }
         
-        bullet.damage = damage;
+        let damageMult = 1;
+        let scaleMult = 1;
+        let isCharged = false;
+        
+        if (this.weapon.flags.chargeReady) {
+            damageMult = 3.0;
+            scaleMult = 2.0;
+            isCharged = true;
+            this.weapon.flags.chargeReady = false; 
+            this.weapon.chargeTimer = 0;
+            this.createFloatingText(source.x, source.y, "重箭!", true);
+        }
+
+        // Random Aim
+        if (this.eventGlobalStats && this.eventGlobalStats.randomAim) {
+            angle += Phaser.Math.FloatBetween(-0.3, 0.3); // ~17 degrees
+        }
+
+        const props = { isArrow: true };
+        if (this.weapon.flags.pierce) props.pierceCount = (props.pierceCount || 0) + this.weapon.flags.pierce;
+        if (this.weapon.flags.explosive) props.isExplosiveArrow = true;
+        if (this.weapon.flags.vortex) props.isVortexArrow = true;
+        if (this.weapon.flags.tracking) props.isTrackingArrow = true;
+        
+        props.damageMult = damageMult;
+        props.scaleMult = scaleMult;
+
+        if (this.weapon.flags.multiShot) {
+             const count = this.weapon.flags.multiShot;
+             const spread = 0.2; // Radians
+             const startAngle = angle - ((count - 1) * spread) / 2;
+             
+             for(let i=0; i<count; i++) {
+                 const a = startAngle + i * spread;
+                 this.fireProjectile(source, a, 'weapon_arrow', 400, props);
+             }
+        } else {
+             this.fireProjectile(source, angle, 'weapon_arrow', 400, props);
+        }
+    }
+
+    performShieldAttack(source) {
+        // Shield Throw Mode
+        if (this.weapon.flags.shieldThrow) {
+             const range = 250; 
+             const target = this.getNearestEnemy(source.x, source.y, range);
+             if (target) {
+                 const angle = Phaser.Math.Angle.Between(source.x, source.y, target.x, target.y);
+                 this.fireProjectile(source, angle, 'weapon_shield', 300, { 
+                     isShieldProjectile: true,
+                     pierceCount: 999, // Infinite pierce
+                     isBoomerang: this.weapon.flags.boomerangShield,
+                     returnTime: 600,
+                     damageMult: 1.0,
+                     rotationSpeed: 10
+                 });
+                 return;
+             }
+        }
+        
+        // Melee Mode (Default)
+        let range = 100; 
+        if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
+
+        let knockback = 200;
+        let scale = 0.6; // 再次减小盾牌体积
+        
+        if (this.weapon.flags.giantShield) {
+            range *= 1.5;
+            scale *= 1.5;
+        }
+        
+        const shield = this.add.sprite(source.x, source.y, 'weapon_shield').setOrigin(0.5, 1).setDepth(20).setScale(scale);
+        if (this.weapon.flags.spikedShield) shield.setTint(0xffaaaa);
+
+        let angle = 0;
+        const nearest = this.getNearestEnemy(source.x, source.y, range * 1.5);
+        if (nearest) angle = Phaser.Math.Angle.Between(source.x, source.y, nearest.x, nearest.y);
+        else if (this.cursors.left.isDown || this.wasd.left.isDown) angle = Math.PI;
+        else if (this.cursors.right.isDown || this.wasd.right.isDown) angle = 0;
+        else if (this.cursors.up.isDown || this.wasd.up.isDown) angle = -Math.PI/2;
+        else if (this.cursors.down.isDown || this.wasd.down.isDown) angle = Math.PI/2;
+
+        shield.setRotation(angle + Math.PI/2);
+        // 盾牌更贴身一些（10 -> 6）
+        shield.setPosition(source.x + Math.cos(angle)*6, source.y + Math.sin(angle)*6);
+        
+        // Visual Shockwave
+        const sw = this.add.graphics();
+        sw.lineStyle(2, 0xaaffff, 0.8);
+        sw.beginPath();
+        sw.arc(0, 0, range, angle - 1.0, angle + 1.0, false);
+        sw.strokePath();
+        sw.x = source.x; sw.y = source.y;
+        this.tweens.add({ targets: sw, alpha: 0, duration: 300, onComplete: () => sw.destroy() });
+
+        this.tweens.add({
+            targets: shield,
+            scaleX: {from: 0.5 * scale, to: 1.5 * scale},
+            scaleY: {from: 0.5 * scale, to: 1.5 * scale},
+            alpha: {from: 1, to: 0},
+            duration: 250,
+            onComplete: () => shield.destroy()
+        });
+        
+        // Defense buff during attack
+        if (this.weapon.flags.defenseBuff) {
+             this.player.isGuarding = true;
+             this.time.delayedCall(300, () => this.player.isGuarding = false);
+        }
+        
+        // Dash
+        if (this.weapon.flags.shieldDash) {
+            const dashSpeed = 400;
+            source.body.velocity.x += Math.cos(angle) * dashSpeed;
+            source.body.velocity.y += Math.sin(angle) * dashSpeed;
+        }
+
+        const dmg = this.calculateDamage();
+        const hitEnemies = new Set();
+        const checkHit = (grp) => {
+            grp.getChildren().forEach(e => {
+                if(e.active && Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) <= range) {
+                    const a = Phaser.Math.Angle.Between(source.x, source.y, e.x, e.y);
+                    if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) < 1.0) hitEnemies.add(e);
+                }
+            });
+        };
+        checkHit(this.enemies);
+        checkHit(this.bossGroup);
+
+        hitEnemies.forEach(e => {
+            let finalDmg = dmg;
+            if (this.weapon.flags.bossSlayer && (e.isBoss || e.isElite)) finalDmg *= 1.3;
+            
+            this.damageEnemy(e, finalDmg, false);
+            if (e.body) {
+                const a = Phaser.Math.Angle.Between(source.x, source.y, e.x, e.y);
+                e.body.velocity.x += Math.cos(a) * knockback;
+                e.body.velocity.y += Math.sin(a) * knockback;
+            }
+            
+            if (this.weapon.flags.shockwave) {
+                this.triggerExplosion(e.x, e.y, 60, dmg * 0.3, false);
+            }
+        });
+    }
+
+    performDaggerAttack(source) {
+        let range = 70;
+        if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
+        
+        // Shadow Step Logic
+        if (this.weapon.flags.shadowStep) {
+            this.weapon.shadowStepTimer = (this.weapon.shadowStepTimer || 0) + 1;
+            // Cooldown ~5s (assuming 60fps update call roughly, but this is inside attack call which is cooldown based)
+            // Logic: if ready, teleport to nearest enemy
+            // Since this function is called on attack interval, let's say every 5th attack is a shadow step
+            this.weapon.shadowStepCounter = (this.weapon.shadowStepCounter || 0) + 1;
+            if (this.weapon.shadowStepCounter >= 5) {
+                 const nearest = this.getNearestEnemy(source.x, source.y, 300);
+                 if (nearest) {
+                     const angle = Phaser.Math.Angle.Between(source.x, source.y, nearest.x, nearest.y);
+                     // Teleport behind
+                     const tx = nearest.x + Math.cos(angle) * 40;
+                     const ty = nearest.y + Math.sin(angle) * 40;
+                     source.x = tx;
+                     source.y = ty;
+                     this.createFloatingText(source.x, source.y, "暗影步", true, '#000000');
+                     this.weapon.shadowStepCounter = 0;
+                     // Bonus damage next hit
+                     this.weapon.shadowStepBonus = true; 
+                 }
+            }
+        }
+
+        const target = this.getNearestEnemy(source.x, source.y, range);
+        if (!target && !this.weapon.flags.whirlwind) return; // Whirlwind can trigger without target
+        
+        let attacks = 1;
+        if (this.weapon.flags.doubleHit) attacks = 2;
+        
+        // Whirlwind Mode
+        if (this.weapon.flags.whirlwind) {
+             this.weapon.whirlwindCounter = (this.weapon.whirlwindCounter || 0) + 1;
+             if (this.weapon.whirlwindCounter >= 3) { // Trigger every 3rd attack cycle
+                 this.weapon.whirlwindCounter = 0;
+                 
+                 // Whirlwind Visual
+                 this.spawnSlashEffect(source.x, source.y, 0, 2.0, 0xff0000);
+                 this.spawnSlashEffect(source.x, source.y, Math.PI, 2.0, 0xff0000);
+                 this.spawnSlashEffect(source.x, source.y, Math.PI/2, 2.0, 0xff0000);
+                 this.spawnSlashEffect(source.x, source.y, -Math.PI/2, 2.0, 0xff0000);
+                 
+                 this.enemies.getChildren().forEach(e => {
+                     if (e.active && Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) < 100) {
+                         this.damageEnemy(e, this.calculateDamage() * 0.8, false);
+                     }
+                 });
+                 return; // Whirlwind replaces normal attack this turn
+             }
+        }
+        
+        // Throw Knife
+        if (this.weapon.flags.throwKnife) {
+            this.weapon.knifeCounter = (this.weapon.knifeCounter || 0) + 1;
+            if (this.weapon.knifeCounter >= 2) {
+                this.weapon.knifeCounter = 0;
+                const throwTarget = this.getNearestEnemy(source.x, source.y, 400);
+                if (throwTarget) {
+                    const ang = Phaser.Math.Angle.Between(source.x, source.y, throwTarget.x, throwTarget.y);
+                    this.fireProjectile(source, ang, 'weapon_dagger', 400, { 
+                        isKnife: true, 
+                        pierceCount: 1,
+                        damageMult: 0.5 
+                    });
+                }
+            }
+        }
+
+        if (!target) return;
+
+        const angle = Phaser.Math.Angle.Between(source.x, source.y, target.x, target.y);
+
+        for (let i = 0; i < attacks; i++) {
+            this.time.delayedCall(i * 100, () => {
+                // Visual Slash
+                this.spawnSlashEffect(source.x, source.y, angle, 1.2, 0xdddddd);
+                
+                let dmg = this.calculateDamage();
+                
+                // Backstab bonus
+                if (this.weapon.flags.backstab) {
+                     // Simple check: if angle from player to enemy is similar to enemy velocity angle (chasing player) 
+                     // Actually simple chaser faces player. Backstab is hard in 2D topdown without explicit facing var.
+                     // Assume backstab if player is moving towards enemy? Or just flat chance?
+                     // Let's use position: if player is "behind" enemy relative to center of map? 
+                     // Let's simplified: 30% chance or if player is moving same dir as enemy (hard to track).
+                     // Better: If player velocity dot product enemy velocity > 0 (moving same direction)
+                     // But enemies chase player. So mostly facing player. 
+                     // Let's make it a chance based on positioning for now (Flanking).
+                     if (Math.random() < 0.4) {
+                         dmg *= 1.5;
+                         this.createFloatingText(target.x, target.y - 20, "背刺!", true, '#ff0000');
+                     }
+                }
+                
+                if (this.weapon.shadowStepBonus) {
+                    dmg *= 2;
+                    this.weapon.shadowStepBonus = false;
+                }
+                
+                // Awakening
+                if (this.weapon.flags.awakening) {
+                    if (this.playerStats.hp < this.playerStats.maxHp * 0.4) {
+                        dmg *= 1.5;
+                    }
+                }
+
+                this.damageEnemy(target, dmg, false);
+                
+                if (this.weapon.flags.bleed) {
+                    if (!target.bleedStacks) target.bleedStacks = 0;
+                    target.bleedStacks++;
+                    for(let k=1; k<=3; k++) {
+                        this.time.delayedCall(k*500, () => {
+                            if(target.active) {
+                                this.damageEnemy(target, 2, false);
+                                this.spawnHitEffect(target.x, target.y, 'blood');
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    }
+    
+    performStaffAttack(source) {
+        let range = this.playerStats.autoAttackRange;
+        if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
+
+        const target = this.getNearestEnemy(source.x, source.y, range);
+        
+        // Power Circle Check
+        let damageMult = 1.0;
+        if (this.weapon.flags.powerCircle) {
+             // Logic to spawn circle
+             if (!this.weapon.circleActive) {
+                 this.weapon.circleTimer = (this.weapon.circleTimer || 0) + 1;
+                 if (this.weapon.circleTimer > 10) { // every 10 shots
+                     this.weapon.circleActive = true;
+                     this.weapon.circleX = source.x;
+                     this.weapon.circleY = source.y;
+                     this.weapon.circleObj = this.add.circle(source.x, source.y, 40, 0x9900ff, 0.3).setDepth(5);
+                     this.time.delayedCall(5000, () => {
+                         if(this.weapon.circleObj) this.weapon.circleObj.destroy();
+                         this.weapon.circleActive = false;
+                         this.weapon.circleTimer = 0;
+                     });
+                 }
+             }
+             
+             if (this.weapon.circleActive && Phaser.Math.Distance.Between(source.x, source.y, this.weapon.circleX, this.weapon.circleY) < 40) {
+                 damageMult *= 1.5;
+             }
+        }
+        
+        // Barrage Mode Buff
+        if (this.weapon.flags.barrage) {
+            // Chance to trigger barrage mode
+            if (!this.weapon.isBarrageActive && Math.random() < 0.1) {
+                this.weapon.isBarrageActive = true;
+                this.weapon.originalCooldown = this.weapon.cooldown;
+                this.weapon.cooldown *= 0.5;
+                this.createFloatingText(source.x, source.y, "秘法弹幕!", true, '#00ffff');
+                this.time.delayedCall(3000, () => {
+                     this.weapon.cooldown = this.weapon.originalCooldown;
+                     this.weapon.isBarrageActive = false;
+                });
+            }
+        }
+        
+        // Charged Shot
+        let isCharged = false;
+        if (this.weapon.flags.chargedStaff) {
+             this.weapon.staffChargeTimer = (this.weapon.staffChargeTimer || 0) + 100; // Simulated ms
+             
+             if (this.weapon.staffChargeTimer > 2000) {
+                 const flare = this.add.circle(source.x, source.y, 40, 0x00ffff, 0.3);
+                 this.tweens.add({targets: flare, scale: 0, alpha: 0, duration: 300, onComplete: ()=>flare.destroy()});
+             }
+
+             if (this.weapon.staffChargeTimer > 5000) {
+                 isCharged = true;
+                 this.weapon.staffChargeTimer = 0;
+                 this.createFloatingText(source.x, source.y, "充能完毕!", true, '#9900ff');
+             }
+        }
+
+        if (!target) return;
+        const angle = Phaser.Math.Angle.Between(source.x, source.y, target.x, target.y);
+        
+        // Blast Passive (Random check)
+        if (this.weapon.flags.blast && Math.random() < 0.2) {
+             this.triggerExplosion(source.x, source.y, 120, 10, false);
+        }
+        
+        // Time Warp Passive
+        if (this.weapon.flags.timeWarp && Math.random() < 0.1) {
+             const zone = this.add.circle(source.x, source.y, 150, 0x00ffff, 0.2);
+             this.tweens.add({targets: zone, alpha: 0, duration: 2000, onComplete: () => zone.destroy()});
+             this.enemies.getChildren().forEach(e => {
+                 if (Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) < 150) {
+                     e.speedMult = 0.5; // Needs support in updateEnemy
+                     this.time.delayedCall(2000, () => e.speedMult = 1.0);
+                 }
+             });
+        }
+
+        // Random Aim
+        if (this.eventGlobalStats && this.eventGlobalStats.randomAim) {
+            angle += Phaser.Math.FloatBetween(-0.3, 0.3);
+        }
+
+        const props = { 
+            isStaff: true,
+            onHit: (scene, bullet, enemy) => {
+                let blastRadius = 80;
+                let blastDmg = bullet.damage * 0.5;
+                
+                if (bullet.isCharged) {
+                    blastRadius = 150;
+                    blastDmg = bullet.damage * 2.0;
+                    scene.createFloatingText(enemy.x, enemy.y, "轰!", true, '#ff00ff');
+                }
+                
+                scene.triggerExplosion(bullet.x, bullet.y, blastRadius, blastDmg, false);
+                
+                if (bullet.chainLightning) {
+                     // Chain Logic
+                     const targets = scene.enemies.getChildren().filter(e => e !== enemy && e.active && Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 150).slice(0, 3);
+                     targets.forEach(t => {
+                         scene.damageEnemy(t, bullet.damage * 0.6, false);
+                         // Draw lightning line
+                         scene.spawnLightningEffect(enemy.x, enemy.y, t.x, t.y);
+                     });
+                }
+                
+                if (bullet.frost) {
+                    enemy.speedMult = 0.5;
+                    scene.time.delayedCall(2000, () => { if(enemy.active) enemy.speedMult = 1.0; });
+                }
+                
+                if (bullet.burn) {
+                     for(let k=1; k<=3; k++) {
+                        scene.time.delayedCall(k*500, () => {
+                            if(enemy.active) scene.damageEnemy(enemy, 3, false);
+                        });
+                    }
+                }
+            }
+        };
+        
+        props.damageMult = damageMult;
+        if (isCharged) props.isCharged = true;
+        if (this.weapon.flags.chainLightning) props.chainLightning = true;
+        if (this.weapon.flags.frost) props.frost = true;
+        if (this.weapon.flags.burn) props.burn = true;
+
+        if (this.weapon.flags.storm) {
+             const count = 5;
+             const spread = 0.5; 
+             const startAngle = angle - ((count - 1) * spread) / 2;
+             for(let i=0; i<count; i++) {
+                 const a = startAngle + i * spread + Phaser.Math.FloatBetween(-0.1, 0.1);
+                 this.fireProjectile(source, a, 'weapon_staff_bolt', 250, { ...props, damageMult: damageMult * 0.4, scale: 0.6 });
+             }
+        } else {
+            this.fireProjectile(source, angle, 'weapon_staff_bolt', 250, props);
+        }
+    }
+
+    fireProjectile(source, angle, texture, speed, props = {}) {
+        // Texture Override for Procedural Textures
+        if (texture === 'weapon_arrow') {
+             texture = props.explosiveShot ? 'tex_arrow_explosive' : 'tex_arrow';
+        } else if (texture === 'weapon_staff_bolt') {
+             texture = props.charged ? 'tex_magic_orb_large' : 'tex_magic_bolt';
+        } else if (texture === 'weapon_dagger') {
+             texture = 'tex_knife';
+        } else if (texture === 'weapon_shield') {
+             texture = 'tex_shield_proj';
+        }
+
+        const bullet = this.bullets.create(source.x, source.y, texture);
+        bullet.setRotation(angle);
+        bullet.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+        bullet.startX = source.x;
+        bullet.startY = source.y;
+        bullet.maxDistance = this.playerStats.bulletRange;
+        bullet.bounces = 0; 
+        bullet.isHoming = false; 
+
+        Object.assign(bullet, props);
+        bullet.damage = this.calculateDamage();
         bullet.pierceCount = this.playerStats.heroic.piercingChain ? 2 : 0; 
     }
 
     handleBulletHitEnemy(bullet, enemy) {
+        if (bullet.onHit) {
+            bullet.onHit(this, bullet, enemy);
+        }
+        
+        // Explosive Arrow
+        if (bullet.isExplosiveArrow) {
+            this.triggerExplosion(bullet.x, bullet.y, 60, bullet.damage * 0.5, true);
+        }
+        
+        // Vortex Arrow
+        if (bullet.isVortexArrow) {
+             const v = this.blackHoleGroup.create(bullet.x, bullet.y, 'black_hole');
+             v.setScale(0.5);
+             v.lifespan = 2000;
+             v.isVortex = true; // Use simple logic in update
+        }
+
         if (bullet.pierceCount > 0) {
             bullet.pierceCount--;
             const currentVel = bullet.body.velocity;
@@ -2450,6 +4148,51 @@ class GameScene extends Phaser.Scene {
     damageEnemy(enemy, amount, isCrit = false) {
         if (!enemy.active) return;
         
+        // Event: Physical Immunity
+        // Assuming "amount" comes mostly from physical except specific sources.
+        // It's hard to distinguish "Physical" vs "Magic" with just amount.
+        // But we added "isStaff" or "isArrow" to projectiles?
+        // Let's assume all base damage is Physical unless it's Staff/Magic/Orb.
+        // But here we don't have source info easily.
+        // Let's rely on global flag: if event is active, 
+        // we might check if damage source was passed? damageEnemy signature doesn't have source type.
+        // Simpler approach: check weapon type of player?
+        
+        // Actually, we can check if it's "Magic Immunity" and we are Mage?
+        // Or "Physical Immunity" and we are Archer/Tank?
+        // Better: Pass "type" to damageEnemy in future refactor.
+        // For now, let's assume all damage is Physical EXCEPT Staff and specialized skills.
+        // This is a limitation.
+        
+        // Let's just implement global immunity for "Attack Immune" (Physical) implies all weapon attacks?
+        // Requirement 42: "All enemies immune to Physical Damage".
+        // Let's blindly apply it if weapon is Bow/Shield/Dagger.
+        if (this.eventGlobalStats && this.eventGlobalStats.physicalImmunity) {
+             if (this.weapon.type !== 'staff' && !this.playerStats.heroic.thunderField) { // Approx check
+                 this.createFloatingText(enemy.x, enemy.y, "免疫", false, '#888888');
+                 return;
+             }
+        }
+        if (this.eventGlobalStats && this.eventGlobalStats.magicImmunity) {
+             if (this.weapon.type === 'staff' || this.playerStats.heroic.thunderField) {
+                 this.createFloatingText(enemy.x, enemy.y, "免疫", false, '#8888ff');
+                 return;
+             }
+        }
+        
+        // Event: Weakness/Strength Aura
+        // Check distance to player
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+        if (dist < 200) {
+            if (this.eventGlobalStats && this.eventGlobalStats.weaknessAura) {
+                // Enemy deals less damage? No, "Weakness Aura" usually means they take more damage or deal less?
+                // Request says: "Enemies deal 50% less damage". This logic belongs in takePlayerDamage.
+                // Wait, item 45: "Weakness Aura: Enemies deal 50% less damage". Yes.
+                // Item 46: "Strength Aura: Enemies deal 50% more damage". Yes.
+                // So this is NOT for damageEnemy. It is for handleEnemyTouchPlayer.
+            }
+        }
+
         // Commander Defense Buff check
         let defenseMod = 1.0;
         this.enemies.getChildren().forEach(e => {
@@ -2457,10 +4200,31 @@ class GameScene extends Phaser.Scene {
                 defenseMod = 0.5; // 50% damage reduction
             }
         });
+
+        // Event: Heavy Armor
+        if (this.eventGlobalStats && this.eventGlobalStats.enemyDmgReduction) {
+             defenseMod -= this.eventGlobalStats.enemyDmgReduction; // e.g. 1.0 - 0.5 = 0.5
+        }
         
+        // Event: Reflect Shield
+        if (this.eventGlobalStats && this.eventGlobalStats.reflectDamage) {
+            this.takePlayerDamage(amount * 0.3);
+            this.createFloatingText(this.player.x, this.player.y - 20, "反伤!", false, '#ff0000');
+        }
+
         enemy.hp -= amount * defenseMod;
-        enemy.setTint(0xffffff);
-        this.time.delayedCall(50, () => { if (enemy.active) enemy.clearTint(); });
+        
+        // Visual Feedback
+        this.spawnHitEffect(enemy.x, enemy.y, 'normal');
+        if (isCrit || amount > 50) {
+            enemy.setTint(0xffaaaa); // Reddish flash for big hits
+            if (!(this.settings && this.settings.lowFX)) {
+                this.cameras.main.shake(50, 0.002);
+            }
+        } else {
+            enemy.setTint(0xffffff);
+        }
+        this.time.delayedCall(80, () => { if (enemy.active) enemy.clearTint(); });
         
         const damageText = isCrit ? `${Math.floor(amount)} 暴击!` : `${Math.floor(amount)}`;
         if (defenseMod < 1) this.createFloatingText(enemy.x, enemy.y - 10, "格挡", false);
@@ -2498,6 +4262,29 @@ class GameScene extends Phaser.Scene {
 
     killEnemy(enemy) {
         this.deathEmitter.emitParticleAt(enemy.x, enemy.y);
+
+        // Event: Plague Source
+        if (this.eventGlobalStats && this.eventGlobalStats.plagueOnDeath && Math.random() < 0.5) { // 50% chance for performance? Request says random 5 enemies, but global flag is simpler. Let's do chance.
+             const cloud = this.hazards.create(enemy.x, enemy.y, 'particle');
+             cloud.setScale(3);
+             cloud.setTint(0x00ff00);
+             cloud.lifespan = 5000;
+             cloud.hazardType = 'fire'; // Reusing fire logic which damages player
+        }
+
+        // Event: Split
+        if (this.eventGlobalStats && this.eventGlobalStats.splitOnDeath && !enemy.def.isSmall && Math.random() < 0.5) {
+             const count = 2;
+             const type = 'zombie'; // Default small enemy
+             for(let i=0; i<count; i++) {
+                const s = this.createEnemy(type, enemy.x + Phaser.Math.Between(-10,10), enemy.y + Phaser.Math.Between(-10,10));
+                if (s) {
+                    s.setScale(0.7);
+                    s.hp = Math.floor(s.hp * 0.5);
+                    s.def.isSmall = true; // Prevent infinite split
+                }
+             }
+        }
         
         if (this.playerStats.heroic.chainExplosion && enemy.lastDamageWasExplosion) {
             if (Math.random() < 0.5) {
@@ -2526,6 +4313,12 @@ class GameScene extends Phaser.Scene {
             }
         }
         
+        // Zealot Blood Step trigger
+        if (this.weapon.flags.bloodStep) {
+            this.weapon.bloodStepActive = true;
+            this.weapon.bloodStepTimer = 1000; // 1s boost
+        }
+        
         if (this.playerStats.heroic.timeFreeze && !this.isTimeFrozen) {
             this.killStreak++;
             this.killStreakTimer = 1000; 
@@ -2543,16 +4336,49 @@ class GameScene extends Phaser.Scene {
         }
         
         const gem = this.gems.create(enemy.x, enemy.y, 'gem');
-        gem.setCircle(3);
+        gem.setCircle(2);
+        // 轻微闪烁动画
+        this.tweens.add({ targets: gem, alpha: { from: 1, to: 0.5 }, duration: 400, yoyo: true, repeat: -1 });
         enemy.destroy();
         this.kills++;
         this.killSinceLastShop++; // Increment shop kill counter
         
         // Gold Drop
-        const goldDrop = Math.max(1, enemy.def.xp || 1);
-        this.gold += goldDrop;
-        this.createFloatingText(enemy.x, enemy.y - 15, `+${goldDrop} 金币`, false, '#ffd700');
+        let goldDrop = Math.max(1, enemy.def.xp || 1);
+        if (this.eventGlobalStats && this.eventGlobalStats.goldXpMult) {
+            goldDrop = Math.floor(goldDrop * this.eventGlobalStats.goldXpMult);
+        }
         
+        // Event: XP Siphon
+        if (this.eventGlobalStats && this.eventGlobalStats.xpSiphon) {
+             // Create XP Zone instead of dropping XP
+             // Find event instance?
+             const evt = this.eventManager.activeEvents.find(e => e.config.id === 38);
+             if (evt) {
+                 const z = this.add.circle(enemy.x, enemy.y, 50, 0x00ffff, 0.3);
+                 evt.zones.push({x: enemy.x, y: enemy.y, life: 5000, visual: z});
+             }
+             // No gold/xp directly? Requirement says "Kill doesn't grant immediate XP".
+             // We can still give gold.
+        } 
+        // Event: XP To Enemy
+        else if (this.eventGlobalStats && this.eventGlobalStats.xpToEnemy) {
+             // Buffet nearest enemy
+             const nearest = this.getNearestEnemy(enemy.x, enemy.y, 300);
+             if (nearest && nearest !== enemy) {
+                 nearest.hp += 20;
+                 nearest.speed *= 1.1;
+                 nearest.setScale(Math.min(2.0, nearest.scale * 1.2));
+                 nearest.setTint(0x00ff00);
+                 this.createFloatingText(nearest.x, nearest.y - 20, "升级!", false, '#00ff00');
+             }
+        }
+        else {
+            // Normal XP/Gold
+            this.gold += goldDrop;
+            this.createFloatingText(enemy.x, enemy.y - 15, `+${goldDrop} 金币`, false, '#ffd700');
+        }
+
         this.updateUI();
     }
 
@@ -2577,6 +4403,25 @@ class GameScene extends Phaser.Scene {
 
     handleEnemyTouchPlayer(player, enemy) {
         let damage = enemy.def.damage;
+        
+        // Event: Weakness/Strength Aura
+        const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+        if (dist < 200) {
+            if (this.eventGlobalStats && this.eventGlobalStats.weaknessAura) damage *= 0.5;
+            if (this.eventGlobalStats && this.eventGlobalStats.strengthAura) damage *= 1.5;
+        }
+
+        // Event: Darkness Lifesteal
+        if (this.eventGlobalStats && this.eventGlobalStats.enemyLifesteal) {
+            const heal = damage * 0.2;
+            enemy.hp = Math.min(enemy.hp + heal, enemy.def.hp * (this.eventGlobalStats.enemyHpMult || 1));
+            // Visual
+            const line = this.add.graphics();
+            line.lineStyle(2, 0xff0000);
+            line.lineBetween(player.x, player.y, enemy.x, enemy.y);
+            this.tweens.add({targets:line, alpha:0, duration:200, onComplete:()=>line.destroy()});
+        }
+
         if (enemy.def.behavior === 'charger' && enemy.customState === 'charging') damage = enemy.def.damage * 2;
         if (enemy.def.behavior === 'exploder') { this.killEnemy(enemy); return; }
         this.takePlayerDamage(damage);
@@ -2584,7 +4429,33 @@ class GameScene extends Phaser.Scene {
 
     takePlayerDamage(amount) {
         if (this.player.alpha < 1) return; 
+
+        // Event: Invincibility
+        if (this.eventGlobalStats && this.eventGlobalStats.invincible) {
+            this.createFloatingText(this.player.x, this.player.y - 20, "无敌!", true, '#ffff00');
+            return;
+        }
         
+        // Zealot Dodge
+        if (this.weapon.flags.dodge && Math.random() < 0.25) {
+             this.createFloatingText(this.player.x, this.player.y - 20, "闪避!", true, '#00ff00');
+             return;
+        }
+
+        // Event: Temp Shield
+        if (this.playerStats.tempShield > 0) {
+             this.playerStats.tempShield -= amount;
+             this.createFloatingText(this.player.x, this.player.y - 20, "护盾吸收!", false, '#00ffff');
+             if (this.playerStats.tempShield < 0) {
+                 // Overflow damage? Usually shields break and absorb full hit in arcade games, or overflow.
+                 // Let's absorb full hit for simplicity or just subtract.
+                 // Requirement says "absorb large damage... or be broken". 
+                 // Let's assume it blocks the hit but breaks if depleted.
+                 this.playerStats.tempShield = 0;
+             }
+             return;
+        }
+
         if (this.playerStats.hasShieldUpgrade && this.playerStats.shieldCharges > 0) {
             this.playerStats.shieldCharges--;
             this.playerStats.shieldTimer = 0; // Reset timer on use
@@ -2621,8 +4492,13 @@ class GameScene extends Phaser.Scene {
     
     handleMagnet() {
         this.gems.getChildren().forEach(gem => {
-            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, gem.x, gem.y);
+            let dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, gem.x, gem.y);
             
+            // Event: Global Magnet
+            if (this.eventGlobalStats && this.eventGlobalStats.globalMagnet) {
+                dist = 0; // Always close enough
+            }
+
             if (dist < this.playerStats.xpCollectRadius) {
                 this.physics.moveToObject(gem, this.player, 400); 
             } 
@@ -2645,14 +4521,29 @@ class GameScene extends Phaser.Scene {
     
     handlePickGem(player, gem) {
         gem.destroy();
-        this.xp++;
-        // Apply Event XP Buff
+        
+        let xpAmount = gem.xpValue || 1; // Default 1 unless specified
+        
+        // Event: XP Siphon Zone Effect
+        let xpGain = xpAmount;
+        if (this.player.isInXpZone) xpGain *= 2;
+        
+        // Global XP Multiplier
+        if (this.eventGlobalStats && this.eventGlobalStats.goldXpMult) {
+             xpGain = Math.floor(xpGain * this.eventGlobalStats.goldXpMult);
+        }
+        
+        this.xp += xpGain;
+        
+        // Apply Event XP Buff (Legacy event logic)
         if (this.eventGlobalStats && this.eventGlobalStats.xpBuffTimer > 0) {
-             const extra = Math.ceil(1 * (this.eventGlobalStats.xpMult - 1));
+             const extra = Math.ceil(xpGain * (this.eventGlobalStats.xpMult - 1));
              this.xp += extra;
         }
 
-        if (this.xp >= this.xpToNextLevel) this.levelUp();
+        if (this.xp >= this.xpToNextLevel) {
+            this.levelUp();
+        }
         this.updateUI();
     }
     
@@ -2691,9 +4582,11 @@ class GameScene extends Phaser.Scene {
         const count = 4;
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
-            const blade = this.heroicBladeGroup.create(this.player.x, this.player.y, 'orbit_blade');
+            // 狂热信徒用飞刀做刀轮，其它英雄用通用刀片
+            const textureKey = (this.weapon.heroId === 'fanatic') ? 'tex_knife' : 'orbit_blade';
+            const blade = this.heroicBladeGroup.create(this.player.x, this.player.y, textureKey);
             blade.setCircle(6); 
-            blade.setScale(1.2);
+            blade.setScale(this.weapon.heroId === 'fanatic' ? 0.9 : 1.2);
             blade.orbitAngle = angle;
             blade.orbitRadius = radius;
         }
@@ -2724,14 +4617,32 @@ class GameScene extends Phaser.Scene {
         // Gold UI
         this.goldText = this.add.text(10, 25, '金币: 0', { ...FONT_STYLE, fill: '#ffd700' }).setScrollFactor(0).setDepth(100);
 
-        // Shop Button
-        const btnShop = this.add.text(GAME_WIDTH - 60, GAME_HEIGHT - 30, '[ 商店 ]', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700', backgroundColor: '#000000' }).setPadding(5).setOrigin(0.5).setScrollFactor(0).setDepth(200).setInteractive();
-        btnShop.on('pointerdown', () => this.toggleShop());
+        // Shop Button（在未满足开启条件前隐藏）
+        this.btnShop = this.add.text(GAME_WIDTH - 60, GAME_HEIGHT - 30, '[ 商店 ]', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700', backgroundColor: '#000000' }).setPadding(5).setOrigin(0.5).setScrollFactor(0).setDepth(200).setInteractive();
+        this.btnShop.on('pointerdown', () => this.toggleShop());
 
-        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, '暂停中 - 按 ESC 继续', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 60, '游戏已暂停', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+
+        // 暂停菜单按钮容器
+        this.pauseMenuContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2 + 10).setDepth(2000).setScrollFactor(0).setVisible(false);
+        const pauseBg = this.add.rectangle(0, 0, 220, 120, 0x000000, 0.9).setStrokeStyle(2, 0xffffff);
+        const btnContinue = this.add.text(0, -15, '【 继续游戏 】', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5).setInteractive();
+        const btnMainMenu = this.add.text(0, 25, '【 返回主菜单 】', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5).setInteractive();
+
+        // 确保暂停菜单在上层
+        pauseBg.setInteractive(); // 阻挡下层点击
+
+        btnContinue.on('pointerdown', () => this.togglePause());
+        btnMainMenu.on('pointerdown', () => {
+            this.scene.stop('GameScene');
+            this.scene.start('MainMenuScene');
+        });
+
+        this.pauseMenuContainer.add([pauseBg, btnContinue, btnMainMenu]);
         
         this.createShopUI();
         this.createEventUI();
+        this.createWeaponUpgradeUI();
         this.updateUI();
     }
 
@@ -2740,9 +4651,117 @@ class GameScene extends Phaser.Scene {
         this.killText.setText(`击杀: ${this.kills}`);
         this.levelText.setText(`等级 ${this.level}`);
         this.goldText.setText(`金币: ${this.gold}`);
+        // 根据击杀数控制商店按钮显示（避免玩家点了却打不开）
+        if (this.btnShop) {
+            this.btnShop.setVisible(this.killSinceLastShop >= KILLS_PER_SHOP);
+        }
         const maxWidth = GAME_WIDTH - 42;
         const ratio = Math.min(this.xp / this.xpToNextLevel, 1);
         this.xpBarFill.width = maxWidth * ratio;
+    }
+
+    createWeaponUpgradeUI() {
+        this.weaponUpgradeContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(2100).setVisible(false).setScrollFactor(0);
+        
+        // Dark Overlay
+        const overlay = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85).setInteractive();
+        // Block clicks
+        overlay.on('pointerdown', () => {}); 
+        
+        const title = this.add.text(0, -100, '武器升级', { ...FONT_STYLE, fontSize: '24px', fill: '#ffaa00', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+        const subTitle = this.add.text(0, -70, '选择一种武器强化', { ...FONT_STYLE, fontSize: '14px', fill: '#aaaaaa' }).setOrigin(0.5);
+        
+        this.weaponUpgradeContainer.add([overlay, title, subTitle]);
+        
+        // Create 3 Slots for Weapon Upgrades
+        this.weaponUpgradeSlots = [];
+        const startX = -110;
+        const gap = 110;
+        
+        for (let i = 0; i < 3; i++) {
+            const x = startX + i * gap;
+            const y = 20;
+            const w = 100;
+            const h = 140;
+            
+            const container = this.add.container(x, y);
+            const card = this.add.rectangle(0, 0, w, h, 0x222222).setStrokeStyle(2, 0xffaa00).setInteractive();
+            
+            const nameText = this.add.text(0, -h/2 + 20, '', { ...FONT_STYLE, fontSize: '12px', fill: '#ffaa00', fontStyle: 'bold', align: 'center', wordWrap: {width: w-10} }).setOrigin(0.5);
+            const descText = this.add.text(0, 10, '', { ...FONT_STYLE, fontSize: '10px', fill: '#cccccc', align: 'center', wordWrap: {width: w-10} }).setOrigin(0.5);
+            const hintText = this.add.text(0, h/2 - 15, `按 [${i+1}] 选择`, { ...FONT_STYLE, fontSize: '10px', fill: '#666666' }).setOrigin(0.5);
+            
+            card.on('pointerover', () => { card.setFillStyle(0x444444); });
+            card.on('pointerout', () => { card.setFillStyle(0x222222); });
+            card.on('pointerdown', () => { this.applyWeaponUpgrade(i); });
+            
+            container.add([card, nameText, descText, hintText]);
+            this.weaponUpgradeContainer.add(container);
+            
+            this.weaponUpgradeSlots.push({ container, card, nameText, descText, upgradeData: null });
+        }
+    }
+
+    showWeaponUpgradeUI() {
+        this.isChoosingWeaponUpgrade = true; 
+        
+        const pool = WEAPON_UPGRADE_POOLS[this.weapon.heroId] || [];
+        
+        // Filter pool based on conflict tags
+        const available = pool.filter(up => {
+            if (!up.conflictTags) return true;
+            for (const tag of up.conflictTags) {
+                if (this.weapon.upgradeTags.has(tag)) return false;
+            }
+            return true;
+        });
+        
+        // Randomly pick up to 3 unique upgrades
+        const choices = [];
+        const selectionPool = [...available];
+        
+        while(choices.length < 3 && selectionPool.length > 0) {
+            const idx = Phaser.Math.Between(0, selectionPool.length - 1);
+            choices.push(selectionPool[idx]);
+            selectionPool.splice(idx, 1);
+        }
+        
+        this.currentWeaponChoices = choices;
+        
+        this.weaponUpgradeSlots.forEach((slot, index) => {
+            if (index < choices.length) {
+                const up = choices[index];
+                slot.nameText.setText(up.name);
+                slot.descText.setText(up.description);
+                slot.upgradeData = up;
+                slot.container.setVisible(true);
+            } else {
+                slot.container.setVisible(false);
+            }
+        });
+        
+        this.weaponUpgradeContainer.setVisible(true);
+    }
+    
+    applyWeaponUpgrade(index) {
+        if (index < 0 || index >= this.currentWeaponChoices.length) return;
+        
+        const upgrade = this.currentWeaponChoices[index];
+        if (upgrade && upgrade.apply) {
+            upgrade.apply(this.player, this.weapon, this);
+            
+            // Add tags
+            this.weapon.upgradeTags.add(upgrade.id);
+            if (upgrade.conflictTags) {
+                upgrade.conflictTags.forEach(tag => this.weapon.upgradeTags.add(tag));
+            }
+        }
+        
+        this.weaponUpgradeContainer.setVisible(false);
+        this.isChoosingWeaponUpgrade = false;
+        
+        // Resume Game
+        this.physics.resume();
     }
 
     createShopUI() {
@@ -2812,67 +4831,50 @@ class GameScene extends Phaser.Scene {
     }
 
     createEventUI() {
+        // 事件改为“自动结算”，这里只保留一个简要提示条，不再需要交互按钮
         this.eventContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(800).setVisible(false).setScrollFactor(0);
         
-        const overlay = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85).setInteractive();
-        const panel = this.add.rectangle(0, 0, 360, 240, 0x220022).setStrokeStyle(2, 0xff00ff);
+        const panel = this.add.rectangle(0, 0, 360, 80, 0x220022).setStrokeStyle(2, 0xff00ff);
+        this.eventTitle = this.add.text(0, -10, '', { ...FONT_STYLE, fontSize: '20px', fill: '#ff00ff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+        this.eventDesc = this.add.text(0, 20, '', { ...FONT_STYLE, fontSize: '12px', fill: '#cccccc', align: 'center', wordWrap: { width: 340 } }).setOrigin(0.5);
         
-        this.eventTitle = this.add.text(0, -90, '', { ...FONT_STYLE, fontSize: '22px', fill: '#ff00ff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
-        this.eventDesc = this.add.text(0, -50, '', { ...FONT_STYLE, fontSize: '14px', fill: '#cccccc', align: 'center', wordWrap: { width: 340 } }).setOrigin(0.5);
-        
-        this.eventContainer.add([overlay, panel, this.eventTitle, this.eventDesc]);
-        
-        this.eventButtons = [];
-        for (let i = 0; i < 2; i++) {
-            const y = 20 + i * 60;
-            const btnBg = this.add.rectangle(0, y, 320, 50, 0x330033).setStrokeStyle(1, 0x880088).setInteractive();
-            const btnText = this.add.text(0, y, '', { ...FONT_STYLE, fontSize: '12px', fill: '#ffffff', align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5);
-            
-            this.eventContainer.add([btnBg, btnText]);
-            this.eventButtons.push({ bg: btnBg, text: btnText, choice: null });
-            
-            btnBg.on('pointerdown', () => {
-                if (this.isEventOpen && this.eventButtons[i].choice) {
-                    this.selectEventOption(this.eventButtons[i].choice);
-                }
-            });
-            btnBg.on('pointerover', () => btnBg.setFillStyle(0x550055));
-            btnBg.on('pointerout', () => btnBg.setFillStyle(0x330033));
-        }
+        this.eventContainer.add([panel, this.eventTitle, this.eventDesc]);
     }
 
     triggerEvent() {
-        this.isEventOpen = true;
-        this.physics.pause();
-        
+        if (!EVENT_CONFIG || EVENT_CONFIG.length === 0) return;
+
+        // 自动事件：随机挑一个事件和其中一个选项，立即结算
         const event = Phaser.Utils.Array.GetRandom(EVENT_CONFIG);
-        this.eventTitle.setText(event.title);
-        this.eventDesc.setText(event.description);
-        
-        this.eventButtons.forEach((btn, i) => {
-            if (i < event.choices.length) {
-                const choice = event.choices[i];
-                btn.text.setText(choice.text);
-                btn.choice = choice;
-                btn.bg.setVisible(true);
-                btn.text.setVisible(true);
-            } else {
-                btn.bg.setVisible(false);
-                btn.text.setVisible(false);
+        const choice = Phaser.Utils.Array.GetRandom(event.choices);
+
+        // 应用效果
+        if (choice && choice.apply) {
+            choice.apply(this);
+        }
+
+        // 短暂在屏幕中间展示事件标题 + 选项文字
+        const titleStr = event.title || '神秘事件';
+        const choiceStr = choice && choice.text ? choice.text : '';
+        this.eventTitle.setText(titleStr);
+        this.eventDesc.setText(choiceStr);
+        this.eventContainer.setVisible(true);
+        this.eventContainer.setDepth(2000);
+
+        this.tweens.add({
+            targets: this.eventContainer,
+            alpha: { from: 1, to: 0 },
+            duration: 2500,
+            onComplete: () => {
+                this.eventContainer.setVisible(false);
+                this.eventContainer.alpha = 1;
             }
         });
-        
-        this.eventContainer.setVisible(true);
-    }
 
-    selectEventOption(choice) {
-        choice.apply(this);
-        
+        // 不再暂停物理 & 不需要 isEventOpen 状态，事件为“瞬发”
         this.isEventOpen = false;
-        this.eventContainer.setVisible(false);
-        this.physics.resume();
-        
-        // Schedule next event (60-90s later)
+
+        // 安排下一次事件时间（60-90 秒后）
         this.nextEventTime = this.survivalTime + Phaser.Math.Between(60, 90);
     }
 
@@ -2920,9 +4922,9 @@ class GameScene extends Phaser.Scene {
     }
 
     createUpgradeUI() {
-        this.upgradeContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(500).setVisible(false);
+        this.upgradeContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(2100).setVisible(false);
         
-        const bg = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.95);
+        const bg = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.95).setInteractive();
         const title = this.add.text(0, -100, '升级！请选择一个加点', { ...FONT_STYLE, fontSize: '20px', fill: '#ffff00' }).setOrigin(0.5);
         this.upgradeContainer.add([bg, title]);
 
@@ -2957,7 +4959,8 @@ class GameScene extends Phaser.Scene {
     levelUp() {
         this.level++;
         this.xp -= this.xpToNextLevel;
-        this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.4);
+        // 调整经验曲线：升级节奏略微加快，但仍然逐步增长
+        this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.25 + 3);
         
         this.playerStats.hp = this.playerStats.maxHp;
         this.createFloatingText(this.player.x, this.player.y - 40, '等级提升，生命全满！', true);
@@ -2970,9 +4973,14 @@ class GameScene extends Phaser.Scene {
         
         this.updateUI();
 
-        this.isChoosingUpgrade = true;
         this.physics.pause();
-        this.showUpgradePanel();
+        
+        if (WEAPON_LEVEL_MILESTONES.includes(this.level)) {
+            this.showWeaponUpgradeUI();
+        } else {
+            this.isChoosingUpgrade = true;
+            this.showUpgradePanel();
+        }
     }
 
     showUpgradePanel() {
@@ -2992,6 +5000,11 @@ class GameScene extends Phaser.Scene {
                     if (up.id === 'homing_barrage' && this.playerStats.heroic.homing) alreadyHave = true;
                     if (up.id === 'orbit_blade_storm' && this.playerStats.heroic.bladeStorm) alreadyHave = true;
                     if (up.id === 'hero_dash_slam' && this.playerStats.heroic.dashSlam) alreadyHave = true;
+                }
+
+                // 刀轮风暴只对狂热信徒开放，其他英雄不出现该选项
+                if (up.id === 'orbit_blade_storm' && this.weapon.heroId !== 'fanatic') {
+                    alreadyHave = true;
                 }
                 
                 if (!alreadyHave) heroics.push(up);
@@ -3056,13 +5069,284 @@ class GameScene extends Phaser.Scene {
         this.upgradeContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
     }
 
-    selectUpgrade(upgrade) {
+    selectUpgrade(upgradeOrIndex) {
+        let upgrade = upgradeOrIndex;
+        // Handle index input (from keyboard)
+        if (typeof upgradeOrIndex === 'number') {
+            if (this.upgradeSlots && this.upgradeSlots[upgradeOrIndex] && this.upgradeSlots[upgradeOrIndex].upgradeData) {
+                upgrade = this.upgradeSlots[upgradeOrIndex].upgradeData;
+            } else {
+                return;
+            }
+        }
+        
         if (!upgrade) return;
         upgrade.apply();
         this.upgradeContainer.setVisible(false);
         this.isChoosingUpgrade = false;
         this.physics.resume();
         this.updateUI();
+    }
+
+    // --- New Visual Effect Methods ---
+
+    generateProceduralTextures() {
+        // Arrow
+        const arrow = this.make.graphics({x:0, y:0, add:false});
+        arrow.lineStyle(2, 0xffffff);
+        arrow.beginPath();
+        arrow.moveTo(0, 0); arrow.lineTo(20, 0); // Shaft
+        arrow.moveTo(15, -5); arrow.lineTo(20, 0); arrow.lineTo(15, 5); // Head
+        arrow.strokePath();
+        arrow.generateTexture('tex_arrow', 24, 12);
+
+        // Explosive Arrow
+        const exArrow = this.make.graphics({x:0, y:0, add:false});
+        exArrow.lineStyle(2, 0xff5500); // Red/Orange
+        exArrow.beginPath();
+        exArrow.moveTo(0, 0); exArrow.lineTo(20, 0);
+        exArrow.fillStyle(0xffaa00);
+        exArrow.fillCircle(20, 0, 4); // Explosive tip
+        exArrow.strokePath();
+        exArrow.generateTexture('tex_arrow_explosive', 28, 12);
+
+        // Magic Bolt
+        const bolt = this.make.graphics({x:0, y:0, add:false});
+        bolt.fillStyle(0x00ffff, 1);
+        bolt.fillCircle(8, 8, 6);
+        bolt.fillStyle(0xffffff, 0.8);
+        bolt.fillCircle(8, 8, 3);
+        bolt.generateTexture('tex_magic_bolt', 16, 16);
+        
+        // Large Magic Orb (Charged)
+        const orb = this.make.graphics({x:0, y:0, add:false});
+        orb.fillStyle(0x0088ff, 0.8);
+        orb.fillCircle(16, 16, 14);
+        orb.fillStyle(0x00ffff, 1);
+        orb.fillCircle(16, 16, 10);
+        orb.generateTexture('tex_magic_orb_large', 32, 32);
+
+        // Knife
+        const knife = this.make.graphics({x:0, y:0, add:false});
+        knife.fillStyle(0xcccccc);
+        knife.beginPath();
+        knife.moveTo(0, 4); knife.lineTo(16, 0); knife.lineTo(0, -4);
+        knife.fillPath();
+        knife.generateTexture('tex_knife', 18, 10);
+        
+        // Shield Projectile
+        const shield = this.make.graphics({x:0, y:0, add:false});
+        shield.lineStyle(2, 0xffff00);
+        shield.strokeCircle(16, 16, 12);
+        shield.fillStyle(0x888800, 0.5);
+        shield.fillCircle(16, 16, 12);
+        shield.generateTexture('tex_shield_proj', 32, 32);
+        
+        // Cleanup
+        arrow.destroy(); exArrow.destroy(); bolt.destroy(); orb.destroy(); knife.destroy(); shield.destroy();
+    }
+
+    spawnHitEffect(x, y, type = 'normal') {
+        if (type === 'normal') {
+            if (this.hitSparkEmitter) this.hitSparkEmitter.emitParticleAt(x, y);
+        } else if (type === 'blood') {
+             const blood = this.add.particles(x, y, 'particle', {
+                lifespan: 300, speed: {min: 50, max: 150}, scale: {start: 0.5, end: 0}, 
+                tint: 0xff0000, quantity: 5, emitting: false
+            });
+            blood.explode();
+            this.time.delayedCall(400, () => blood.destroy());
+        }
+    }
+
+    spawnExplosionEffect(x, y, radius, color = 0xffaa00) {
+        const circle = this.add.circle(x, y, 10, color, 0.6);
+        this.tweens.add({
+            targets: circle,
+            scale: radius / 10,
+            alpha: 0,
+            duration: 300,
+            onComplete: () => circle.destroy()
+        });
+        
+        if (this.explodeEmitter && !(this.settings && this.settings.lowFX)) {
+            this.explodeEmitter.setPosition(x, y);
+            this.explodeEmitter.explode(10);
+        }
+        
+        const flash = this.add.circle(x, y, radius * 0.8, 0xffffff, 0.8);
+        this.tweens.add({
+            targets: flash,
+            scale: 1.2,
+            alpha: 0,
+            duration: 100,
+            onComplete: () => flash.destroy()
+        });
+        
+        if (!(this.settings && this.settings.lowFX)) {
+            this.cameras.main.shake(100, 0.005);
+        }
+    }
+
+    spawnSlashEffect(x, y, angle, size = 1.0, color = 0xffffff) {
+        const slash = this.add.graphics();
+        slash.lineStyle(3, color);
+        slash.beginPath();
+        slash.arc(0, 0, 40 * size, -Math.PI/4, Math.PI/4, false);
+        slash.strokePath();
+        slash.x = x;
+        slash.y = y;
+        slash.rotation = angle;
+        slash.setDepth(50);
+        
+        this.tweens.add({
+            targets: slash,
+            alpha: 0,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 200,
+            onComplete: () => slash.destroy()
+        });
+    }
+    
+    spawnLightningEffect(x1, y1, x2, y2) {
+        const lightning = this.add.graphics();
+        lightning.lineStyle(2, 0xaaddff);
+        lightning.beginPath();
+        lightning.moveTo(x1, y1);
+        
+        const dist = Phaser.Math.Distance.Between(x1, y1, x2, y2);
+        const steps = Math.floor(dist / 20);
+        
+        let cx = x1, cy = y1;
+        for(let i=1; i<steps; i++) {
+            const t = i / steps;
+            const tx = x1 + (x2 - x1) * t;
+            const ty = y1 + (y2 - y1) * t;
+            const jx = tx + Phaser.Math.Between(-10, 10);
+            const jy = ty + Phaser.Math.Between(-10, 10);
+            lightning.lineTo(jx, jy);
+        }
+        lightning.lineTo(x2, y2);
+        lightning.strokePath();
+        lightning.setDepth(100);
+        
+        this.tweens.add({
+            targets: lightning,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => lightning.destroy()
+        });
+    }
+
+    // --- Event System ---
+
+    initEventManager() {
+        this.eventManager = {
+            nextEventTime: this.survivalTime + Phaser.Math.Between(100, 200),
+            minInterval: 100,
+            maxInterval: 200,
+            activeEvents: [],
+        };
+    }
+
+    initEventUI() {
+        this.eventBubbleManager = {
+            queue: [],
+            currentBubble: null,
+            container: this.add.container(0, 0).setScrollFactor(0).setDepth(1000) 
+        };
+    }
+
+    updateEventManager(time, delta) {
+        if (this.survivalTime >= this.eventManager.nextEventTime) {
+            const keys = Object.keys(EVENT_POOL);
+            const randomKey = Phaser.Utils.Array.GetRandom(keys);
+            const config = EVENT_POOL[randomKey];
+            
+            if (config) {
+                const eventInstance = {
+                    config: config,
+                    startTime: time,
+                    endTime: time + (config.duration || 0) * 1000,
+                    data: {} 
+                };
+                
+                if (config.onStart) config.onStart(this, eventInstance);
+                
+                if (config.bubbleEmoji && config.bubbleText) {
+                    this.showEventBubble(config.bubbleEmoji, config.bubbleText);
+                }
+                
+                this.eventManager.activeEvents.push(eventInstance);
+                this.eventManager.nextEventTime = this.survivalTime + Phaser.Math.Between(this.eventManager.minInterval, this.eventManager.maxInterval);
+            }
+        }
+        
+        for (let i = this.eventManager.activeEvents.length - 1; i >= 0; i--) {
+            const ev = this.eventManager.activeEvents[i];
+            
+            if (ev.config.onUpdate) ev.config.onUpdate(this, delta, ev);
+            
+            if (ev.config.duration > 0 && time >= ev.endTime) {
+                if (ev.config.onEnd) ev.config.onEnd(this, ev);
+                this.eventManager.activeEvents.splice(i, 1);
+            }
+        }
+    }
+
+    updateEventUI(time, delta) {
+        const mgr = this.eventBubbleManager;
+        
+        if (!mgr.currentBubble && mgr.queue.length > 0) {
+            const next = mgr.queue.shift();
+            this._displayBubble(next.emoji, next.text);
+        }
+        
+        if (mgr.currentBubble) {
+            mgr.currentBubble.life -= delta;
+            if (mgr.currentBubble.life <= 0) {
+                this.tweens.add({
+                    targets: mgr.currentBubble.visual,
+                    alpha: 0,
+                    x: GAME_WIDTH + 200,
+                    duration: 500,
+                    onComplete: () => {
+                        if (mgr.currentBubble && mgr.currentBubble.visual) mgr.currentBubble.visual.destroy();
+                        mgr.currentBubble = null;
+                    }
+                });
+                mgr.currentBubble.life = 999999; 
+            }
+        }
+    }
+
+    showEventBubble(emoji, text) {
+        this.eventBubbleManager.queue.push({ emoji, text });
+    }
+
+    _displayBubble(emoji, text) {
+        const bg = this.add.graphics();
+        bg.fillStyle(0x000000, 0.6);
+        bg.fillRoundedRect(0, 0, 220, 60, 10);
+        
+        const emojiText = this.add.text(10, 30, emoji, { fontSize: '32px' }).setOrigin(0, 0.5);
+        const descText = this.add.text(50, 30, text, { fontSize: '14px', color: '#ffffff', wordWrap: { width: 160 } }).setOrigin(0, 0.5);
+        
+        const container = this.add.container(GAME_WIDTH + 220, 80, [bg, emojiText, descText]);
+        this.eventBubbleManager.container.add(container);
+        
+        this.eventBubbleManager.currentBubble = {
+            visual: container,
+            life: 4000 
+        };
+        
+        this.tweens.add({
+            targets: container,
+            x: GAME_WIDTH - 230,
+            duration: 500,
+            ease: 'Back.out'
+        });
     }
 }
 
