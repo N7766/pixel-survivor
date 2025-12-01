@@ -567,8 +567,8 @@ const HEROES = [
         stats: {
             maxHp: 5,
             speed: 105,
-            cooldown: 700,
-            damage: 1,
+            cooldown: 400,
+            damage: 2,
             range: 250
         },
         passive: 'lifesteal'
@@ -935,229 +935,184 @@ class TalentScene extends Phaser.Scene {
 
     create() {
         this.saveData = Persistence.load();
-
-        // Background
-        this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x111111);
         
-        // Header
-        this.add.text(GAME_WIDTH/2, 25, '天赋树', { ...FONT_STYLE, fontSize: '28px', fill: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
-        this.pointsText = this.add.text(GAME_WIDTH/2, 55, `灵魂点数: ${this.saveData.soulPoints}`, { ...FONT_STYLE, fontSize: '16px', fill: '#00ffff' }).setOrigin(0.5);
-
-        // Layout Constants
-        const cardWidth = 140;
-        const cardHeight = 160; 
-        const cardMarginX = 30;
+        // --- Layer 1: Background (Fixed) ---
+        // Using scrollFactor(0) so it doesn't move
+        this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x111111)
+            .setScrollFactor(0);
         
-        // Layout adjusted
-        const talentGridStartY = 80;
-        const talentGridRowSpacing = 30;
-        const backButtonY = GAME_HEIGHT - 40;
+        // --- Layer 2: Card Container ---
+        // These objects will scroll with the camera
+        this.cardObjects = []; // Keep track to clear them
+        
+        // Initial Render
+        this.renderTalentGrid();
 
+        // --- Layer 3: Fixed HUD ---
+        // Header Background
+        this.add.rectangle(GAME_WIDTH/2, 35, GAME_WIDTH, 70, 0x111111, 0.95).setScrollFactor(0);
+
+        this.add.text(GAME_WIDTH/2, 25, '天赋树', { ...FONT_STYLE, fontSize: '24px', fill: '#ffd700', fontStyle: 'bold' })
+            .setOrigin(0.5).setScrollFactor(0);
+            
+        this.pointsText = this.add.text(GAME_WIDTH/2, 50, `灵魂点数: ${this.saveData.soulPoints}`, { ...FONT_STYLE, fontSize: '16px', fill: '#00ffff' })
+            .setOrigin(0.5).setScrollFactor(0);
+
+        // Footer Background
+        const footerY = GAME_HEIGHT - 30;
+        this.add.rectangle(GAME_WIDTH/2, footerY, GAME_WIDTH, 60, 0x111111, 0.95).setScrollFactor(0);
+
+        // Back Button
+        const btnBack = this.add.text(GAME_WIDTH/2, footerY, '【 返回主菜单 】', { 
+            ...FONT_STYLE, fontSize: '16px', fill: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 8 } 
+        }).setOrigin(0.5).setInteractive().setScrollFactor(0);
+        
+        btnBack.on('pointerdown', () => this.scene.start('MainMenuScene'));
+        btnBack.on('pointerover', () => btnBack.setStyle({ fill: '#ffff00' }));
+        btnBack.on('pointerout', () => btnBack.setStyle({ fill: '#ffffff' }));
+
+        // --- Scroll Logic ---
+        const contentHeight = this.getContentHeight();
+        this.cameras.main.setBounds(0, 0, GAME_WIDTH, Math.max(GAME_HEIGHT, contentHeight));
+        
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            this.cameras.main.scrollY += deltaY * 0.5;
+            this.clampScroll();
+        });
+
+        // Simple Drag Scroll
+        let isDragging = false;
+        let lastY = 0;
+        
+        this.input.on('pointerdown', (pointer) => {
+            if (pointer.y > 70 && pointer.y < GAME_HEIGHT - 60) {
+                isDragging = true;
+                lastY = pointer.y;
+            }
+        });
+        
+        this.input.on('pointermove', (pointer) => {
+            if (isDragging) {
+                const dy = pointer.y - lastY;
+                this.cameras.main.scrollY -= dy;
+                lastY = pointer.y;
+                this.clampScroll();
+            }
+        });
+        
+        this.input.on('pointerup', () => { isDragging = false; });
+    }
+    
+    getContentHeight() {
         const cols = 3;
+        const rows = Math.ceil(TALENT_CONFIG.length / cols);
+        const cardHeight = 120;
+        const rowSpacing = 20;
+        const startY = 90;
+        const bottomPadding = 80;
+        return startY + rows * (cardHeight + rowSpacing) + bottomPadding;
+    }
+    
+    clampScroll() {
+        const maxScroll = Math.max(0, this.getContentHeight() - GAME_HEIGHT);
+        this.cameras.main.scrollY = Phaser.Math.Clamp(this.cameras.main.scrollY, 0, maxScroll);
+    }
+
+    renderTalentGrid() {
+        this.cardObjects.forEach(o => o.destroy());
+        this.cardObjects = [];
         
-        // Calculate grid start position to center it
-        const totalWidth = cols * cardWidth + (cols - 1) * cardMarginX;
+        const cols = 3;
+        const cardWidth = 140; 
+        const cardHeight = 120;
+        const padX = 10;
+        const padY = 20;
+        const startY = 90 + cardHeight/2; 
         
-        const startX = (GAME_WIDTH - totalWidth) / 2 + cardWidth / 2;
+        const totalRowWidth = cols * cardWidth + (cols - 1) * padX;
+        const startX = (GAME_WIDTH - totalRowWidth) / 2 + cardWidth / 2;
 
         TALENT_CONFIG.forEach((talent, index) => {
             const col = index % cols;
             const row = Math.floor(index / cols);
-            const x = startX + col * (cardWidth + cardMarginX);
-            const y = talentGridStartY + row * (cardHeight + talentGridRowSpacing);
-
-            this.createTalentCard(x, y, talent, cardWidth, cardHeight);
+            const x = startX + col * (cardWidth + padX);
+            const y = startY + row * (cardHeight + padY);
+            
+            this.cardObjects.push(this.createTalentCard(x, y, talent, cardWidth, cardHeight));
         });
-
-        // Back Button
-        const btnBack = this.add.text(GAME_WIDTH/2, backButtonY, '【 返回主菜单 】', { 
-            ...FONT_STYLE, 
-            fontSize: '18px', 
-            fill: '#ffffff', 
-            backgroundColor: '#333333', 
-            padding: { x: 30, y: 15 } 
-        }).setOrigin(0.5).setInteractive();
-        
-        btnBack.on('pointerdown', () => this.scene.start('MainMenuScene'));
-        btnBack.on('pointerover', () => btnBack.setFill('#ffff00'));
-        btnBack.on('pointerout', () => btnBack.setFill('#ffffff'));
-        
-        // ESC Key Support
-        this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-        
-        // Description Text Area (Global)
-        this.descText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 90, '', { ...FONT_STYLE, fontSize: '14px', fill: '#cccccc', align: 'center', wordWrap: { width: 400 } }).setOrigin(0.5);
-    }
-
-    update() {
-        if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-            this.scene.start('MainMenuScene');
-        }
     }
 
     createTalentCard(x, y, talent, width, height) {
+        const container = this.add.container(x, y);
         const currentLevel = Persistence.getTalentLevel(this.saveData.talents, talent.id);
         const isMax = currentLevel >= talent.maxLevel;
-        const cost = talent.cost * (currentLevel + 1); // Simple cost scaling
+        const cost = talent.cost * (currentLevel + 1);
         
-        // Check prerequisites
         let prereqMet = true;
         if (talent.prerequisites) {
             talent.prerequisites.forEach(p => {
-                const pLevel = Persistence.getTalentLevel(this.saveData.talents, p.id);
-                if (pLevel < p.level) prereqMet = false;
+                if (Persistence.getTalentLevel(this.saveData.talents, p.id) < p.level) prereqMet = false;
             });
         }
-
-        const canAfford = this.saveData.soulPoints >= cost;
         const isLocked = !prereqMet;
+        const canAfford = this.saveData.soulPoints >= cost;
 
-        const container = this.add.container(x, y);
+        let bgColor = isLocked ? 0x111111 : 0x222222;
+        let strokeColor = isLocked ? 0x333333 : (isMax ? 0xffd700 : 0x555555);
+        let textColor = isLocked ? '#555555' : '#ffffff';
+        let costColor = isLocked ? '#555555' : (isMax ? '#ffd700' : (canAfford ? '#ffff00' : '#aa0000'));
+        let costStr = isLocked ? "未解锁" : (isMax ? "已满级" : `消耗: ${cost}`);
 
-        // Colors
-        let bgColor, strokeColor, textColor;
-        if (isLocked) { 
-            bgColor = 0x111111; 
-            strokeColor = 0x333333; 
-            textColor = '#555555';
-        } else if (isMax) { 
-            bgColor = 0x222222; 
-            strokeColor = 0xffd700; // Gold border
-            textColor = '#ffffff';
-        } else { 
-            bgColor = 0x333333; 
-            strokeColor = canAfford ? 0xffff00 : 0x666666;
-            textColor = '#ffffff';
-        }
+        const bg = this.add.rectangle(0, 0, width, height, bgColor).setStrokeStyle(2, strokeColor).setInteractive();
+        container.add(bg);
 
-        const bg = this.add.rectangle(0, 0, width, height, bgColor).setStrokeStyle(2, strokeColor);
+        // Name
+        container.add(this.add.text(0, -height/2 + 20, talent.name, { ...FONT_STYLE, fontSize: '14px', fill: textColor, fontStyle: 'bold' }).setOrigin(0.5));
         
-        // Text Content
-        const nameText = this.add.text(0, -height/2 + 20, talent.name, { ...FONT_STYLE, fontSize: '14px', fill: textColor, fontStyle: 'bold' }).setOrigin(0.5);
-        const levelText = this.add.text(0, -height/2 + 40, `Lv. ${currentLevel}/${talent.maxLevel}`, { ...FONT_STYLE, fontSize: '12px', fill: isLocked ? '#555555' : '#aaaaaa' }).setOrigin(0.5);
-        
-        let costStr;
-        let costFill = '#ffffff';
+        // Level
+        container.add(this.add.text(0, -height/2 + 45, `Lv. ${currentLevel}/${talent.maxLevel}`, { ...FONT_STYLE, fontSize: '12px', fill: isLocked ? '#555555' : '#aaaaaa' }).setOrigin(0.5));
 
-        if (isLocked) {
-            costStr = "未解锁";
-            costFill = '#555555';
-        } else if (isMax) {
-            costStr = "已满级";
-            costFill = '#ffd700';
-        } else {
-            costStr = `消耗: ${cost}`;
-            costFill = canAfford ? '#ffff00' : '#ff0000';
-        }
+        // Cost
+        const costTxt = this.add.text(0, -height/2 + 65, costStr, { ...FONT_STYLE, fontSize: '12px', fill: costColor }).setOrigin(0.5);
+        container.add(costTxt);
 
-        const costText = this.add.text(0, -height/2 + 60, costStr, { ...FONT_STYLE, fontSize: '12px', fill: costFill }).setOrigin(0.5);
-
-        // Preview Text (Next Level)
-        if (!isMax && !isLocked) {
+        // Description/Preview
+        if (!isLocked && !isMax) {
              let previewStr = "";
-             // Determine effect text
-             // Hardcoded mapping for simplicity as per requirement
-             if (talent.effectKey === 'maxHp') previewStr = `最大生命 +${talent.effectValue}`;
-             else if (talent.effectKey === 'speed') previewStr = `移动速度 +${Math.round(talent.effectValue * 100)}%`;
-             else if (talent.effectKey === 'damage') previewStr = `子弹伤害 +${talent.effectValue}`;
-             else if (talent.effectKey === 'startShield') previewStr = `护盾格挡 +${talent.effectValue}`;
-             else if (talent.effectKey === 'startXp') previewStr = `初始经验 +${talent.effectValue}`;
-
-             if (previewStr) {
-                const previewText = this.add.text(0, 10, `下级效果:\n${previewStr}`, { 
-                    ...FONT_STYLE, 
-                    fontSize: '12px', 
-                    fill: '#aaaaaa', 
-                    align: 'center',
-                    wordWrap: { width: width - 10 }
-                }).setOrigin(0.5, 0);
-                container.add(previewText);
-             }
-        } else if (isMax) {
-             const maxText = this.add.text(0, 10, "已达到\n最大等级", { 
-                    ...FONT_STYLE, 
-                    fontSize: '12px', 
-                    fill: '#ffd700', 
-                    align: 'center'
-                }).setOrigin(0.5, 0);
-             container.add(maxText);
+             if (talent.effectKey === 'maxHp') previewStr = `HP +${talent.effectValue}`;
+             else if (talent.effectKey === 'speed') previewStr = `移速 +${Math.round(talent.effectValue * 100)}%`;
+             else if (talent.effectKey === 'damage') previewStr = `伤害 +${talent.effectValue}`;
+             else if (talent.effectKey === 'startShield') previewStr = `护盾 +${talent.effectValue}`;
+             else if (talent.effectKey === 'startXp') previewStr = `初始XP +${talent.effectValue}`;
+             
+             if (previewStr) container.add(this.add.text(0, 20, previewStr, { ...FONT_STYLE, fontSize: '10px', fill: '#888888' }).setOrigin(0.5));
         }
 
-        container.add([bg, nameText, levelText, costText]);
+        // Interaction
+        bg.on('pointerdown', () => {
+            if (isLocked) {
+                this.tweens.add({ targets: container, x: x + 5, duration: 50, yoyo: true, repeat: 3 });
+                return;
+            }
+            if (isMax) return;
 
-        // Interactions
-        if (!isLocked) {
-            bg.setInteractive();
+            if (canAfford) {
+                this.saveData.soulPoints -= cost;
+                this.saveData.talents[talent.id] = currentLevel + 1;
+                Persistence.save(this.saveData);
+                this.pointsText.setText(`灵魂点数: ${this.saveData.soulPoints}`);
+                this.renderTalentGrid(); // Refresh all
+            } else {
+                this.tweens.add({ targets: container, x: x + 5, duration: 50, yoyo: true, repeat: 3 }); // Shake
+                this.tweens.add({ targets: costTxt, scale: 1.5, duration: 100, yoyo: true }); // Pulse text
+            }
+        });
 
-            bg.on('pointerdown', () => {
-                if (isMax) return;
-                
-                if (canAfford) {
-                    // Purchase Logic
-                    this.saveData.soulPoints -= cost;
-                    this.saveData.talents[talent.id] = currentLevel + 1;
-                    Persistence.save(this.saveData);
-                    
-                    // Visual Feedback
-                    this.pointsText.setText(`灵魂点数: ${this.saveData.soulPoints}`);
-                    
-                    // Flash effect
-                    this.tweens.add({
-                        targets: bg,
-                        strokeAlpha: 0,
-                        duration: 100,
-                        yoyo: true,
-                        repeat: 1
-                    });
-                    
-                    // Float text
-                    const floatTxt = this.add.text(x, y - height/2 - 10, "天赋+1", { ...FONT_STYLE, fontSize: '16px', fill: '#00ff00', strokeThickness: 3 }).setOrigin(0.5);
-                    this.tweens.add({
-                        targets: floatTxt,
-                        y: y - height/2 - 40,
-                        alpha: 0,
-                        duration: 800,
-                        onComplete: () => floatTxt.destroy()
-                    });
+        // Hover
+        bg.on('pointerover', () => { if (!isMax && !isLocked) bg.setStrokeStyle(2, 0xffffff); });
+        bg.on('pointerout', () => { bg.setStrokeStyle(2, strokeColor); });
 
-                    // Refresh this card only (or full scene)
-                    // Full restart is easiest to ensure all dependencies update (e.g. unlocks)
-                    this.time.delayedCall(200, () => this.scene.restart());
-                } else {
-                    // Not enough points
-                    this.cameras.main.shake(50, 0.005);
-                    const noPoints = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 100, "点数不足", { ...FONT_STYLE, fontSize: '18px', fill: '#ff0000', strokeThickness: 3 }).setOrigin(0.5);
-                    this.tweens.add({
-                        targets: noPoints,
-                        alpha: 0,
-                        duration: 1000,
-                        onComplete: () => noPoints.destroy()
-                    });
-                }
-            });
-
-            bg.on('pointerover', () => {
-                if (!isMax) bg.setScale(1.05);
-                bg.setStrokeStyle(2, 0xffffff); // Brighten border
-                this.descText.setText(talent.description);
-                if (isLocked) this.descText.setText("[未解锁] " + talent.description);
-            });
-
-            bg.on('pointerout', () => {
-                if (!isMax) bg.setScale(1.0);
-                bg.setStrokeStyle(2, strokeColor); // Revert border
-                this.descText.setText('');
-            });
-        } else {
-             // Locked interaction (just tooltip)
-             bg.setInteractive();
-             bg.on('pointerover', () => {
-                 this.descText.setText(`[未解锁] ${talent.description}`);
-             });
-             bg.on('pointerout', () => {
-                 this.descText.setText('');
-             });
-        }
+        return container;
     }
 }
 
@@ -2214,7 +2169,6 @@ class GameScene extends Phaser.Scene {
             { id: 'move_speed_up', rarity: 'common', name: '提高移动速度', description: '移动速度提升 10%。', apply: () => { this.playerStats.speed *= 1.1; } },
             { id: 'cooldown_down', rarity: 'common', name: '缩短攻击冷却', description: '攻击间隔缩短 10%。', apply: () => { this.weapon.cooldown *= 0.9; } },
             { id: 'damage_up', rarity: 'common', name: '提升子弹伤害', description: '子弹伤害 +1。', apply: () => { this.weapon.damage++; } },
-            { id: 'xp_gain', rarity: 'common', name: '增加经验获取', description: '经验获取效率略微提升。', apply: () => { /* Logic implicitly handled by XP curve */ } },
             { id: 'pickup_range', rarity: 'common', name: '增加拾取范围', description: '磁铁范围扩大 20%。', apply: () => { this.playerStats.xpMagnetRadius *= 1.2; } },
             // Removed unlock_spread
             { id: 'unlock_orbit', rarity: 'common', name: '解锁环绕法球', description: '在身边生成旋转法球保護自己。', apply: () => { this.weapon.hasOrbit = true; this.weapon.orbitCount += 1; this.spawnOrbits(); } },
@@ -2224,14 +2178,12 @@ class GameScene extends Phaser.Scene {
             { id: 'overload_fire', rarity: 'rare', name: '超载射击', description: '攻击间隔缩短 40%, 但生命上限 -1 (不会低于 1)。', apply: () => { this.weapon.cooldown *= 0.6; this.playerStats.maxHp = Math.max(1, this.playerStats.maxHp - 1); if (this.playerStats.hp > this.playerStats.maxHp) this.playerStats.hp = this.playerStats.maxHp; }},
             { id: 'berserker', rarity: 'rare', name: '狂战之心', description: '生命越低, 伤害越高, 最多提升 80%。', apply: () => { this.playerStats.isBerserker = true; } },
             { id: 'time_slow_aura', rarity: 'rare', name: '时间减速场', description: '靠近你的敌人会被减速 40%。', apply: () => { this.playerStats.hasSlowAura = true; } },
-            { id: 'super_magnet', rarity: 'rare', name: '超级磁场', description: '经验吸附范围提升至 2.5 倍。', apply: () => { this.playerStats.xpMagnetRadius *= 2.5; } },
             { id: 'dash_skill', rarity: 'rare', name: '闪现步', description: '解锁空格闪现: 瞬间向移动方向冲刺, 冷却 2 秒。', apply: () => { this.playerStats.dashUnlocked = true; } },
             { id: 'shield_barrier', rarity: 'rare', name: '能量护盾', description: '获得每 20 秒刷新一次的护盾，抵挡一次伤害。', apply: () => { this.playerStats.hasShieldUpgrade = true; this.playerStats.shieldMaxCharges = 1; this.playerStats.shieldCharges = 1; }},
             { id: 'crit_master', rarity: 'rare', name: '暴击大师', description: '获得 35% 暴击率, 暴击时伤害 x2.5。', apply: () => { this.playerStats.critChance = 0.35; this.playerStats.critMultiplier = 2.5; } },
             { id: 'chain_lightning', rarity: 'rare', name: '连锁闪电', description: '击杀敌人时, 电击附近 5 个敌人。', apply: () => { this.playerStats.hasChainLightning = true; } },
             { id: 'burning_aura', rarity: 'rare', name: '灼烧领域', description: '靠近你的敌人持续受到更高伤害。', apply: () => { this.playerStats.hasBurningAura = true; } },
-            { id: 'lucky_god', rarity: 'rare', name: '小小欧皇', description: '每次升级额外提供 2 个选项。', apply: () => { this.upgradeChoicesCount += 2; } },
-
+           
             // HEROIC
             { id: 'bullet_split_cross', rarity: 'heroic', name: '十字分裂彈', description: '子彈擊殺敵人時, 在四個方向額外分裂出 4 發新子彈。', apply: () => { this.playerStats.heroic.splitCross = true; } },
             { id: 'bullet_split_around', rarity: 'heroic', name: '環形分裂彈', description: '子彈擊殺敵人時, 朝四周散射一圈小彈幕。', apply: () => { this.playerStats.heroic.splitAround = true; } },
@@ -3662,11 +3614,15 @@ class GameScene extends Phaser.Scene {
         }
         
         // Melee Mode (Default)
-        let range = 100; 
+        // Modified: Reduced range and arc for better feel
+        const SHIELD_ARC_ANGLE = Phaser.Math.DegToRad(110); // ~110 degrees total
+        const HALF_ARC = SHIELD_ARC_ANGLE / 2;
+        
+        let range = 85; // Reduced from 100+
         if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
 
         let knockback = 200;
-        let scale = 0.6; // 再次减小盾牌体积
+        let scale = 0.6; 
         
         if (this.weapon.flags.giantShield) {
             range *= 1.5;
@@ -3685,14 +3641,13 @@ class GameScene extends Phaser.Scene {
         else if (this.cursors.down.isDown || this.wasd.down.isDown) angle = Math.PI/2;
 
         shield.setRotation(angle + Math.PI/2);
-        // 盾牌更贴身一些（10 -> 6）
         shield.setPosition(source.x + Math.cos(angle)*6, source.y + Math.sin(angle)*6);
         
-        // Visual Shockwave
+        // Visual Shockwave - Updated to match new arc
         const sw = this.add.graphics();
         sw.lineStyle(2, 0xaaffff, 0.8);
         sw.beginPath();
-        sw.arc(0, 0, range, angle - 1.0, angle + 1.0, false);
+        sw.arc(0, 0, range, angle - HALF_ARC, angle + HALF_ARC, false);
         sw.strokePath();
         sw.x = source.x; sw.y = source.y;
         this.tweens.add({ targets: sw, alpha: 0, duration: 300, onComplete: () => sw.destroy() });
@@ -3725,7 +3680,8 @@ class GameScene extends Phaser.Scene {
             grp.getChildren().forEach(e => {
                 if(e.active && Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) <= range) {
                     const a = Phaser.Math.Angle.Between(source.x, source.y, e.x, e.y);
-                    if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) < 1.0) hitEnemies.add(e);
+                    // Check angle overlap
+                    if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) < HALF_ARC) hitEnemies.add(e);
                 }
             });
         };
@@ -3750,101 +3706,99 @@ class GameScene extends Phaser.Scene {
     }
 
     performDaggerAttack(source) {
-        let range = 70;
+        let range = 65; // Close melee range
         if (this.eventGlobalStats && this.eventGlobalStats.rangeMult) range *= this.eventGlobalStats.rangeMult;
         
-        // Shadow Step Logic
+        // Shadow Step Logic (Preserved)
         if (this.weapon.flags.shadowStep) {
             this.weapon.shadowStepTimer = (this.weapon.shadowStepTimer || 0) + 1;
-            // Cooldown ~5s (assuming 60fps update call roughly, but this is inside attack call which is cooldown based)
-            // Logic: if ready, teleport to nearest enemy
-            // Since this function is called on attack interval, let's say every 5th attack is a shadow step
             this.weapon.shadowStepCounter = (this.weapon.shadowStepCounter || 0) + 1;
             if (this.weapon.shadowStepCounter >= 5) {
                  const nearest = this.getNearestEnemy(source.x, source.y, 300);
                  if (nearest) {
                      const angle = Phaser.Math.Angle.Between(source.x, source.y, nearest.x, nearest.y);
-                     // Teleport behind
                      const tx = nearest.x + Math.cos(angle) * 40;
                      const ty = nearest.y + Math.sin(angle) * 40;
                      source.x = tx;
                      source.y = ty;
                      this.createFloatingText(source.x, source.y, "暗影步", true, '#000000');
                      this.weapon.shadowStepCounter = 0;
-                     // Bonus damage next hit
                      this.weapon.shadowStepBonus = true; 
                  }
             }
         }
 
-        const target = this.getNearestEnemy(source.x, source.y, range);
-        if (!target && !this.weapon.flags.whirlwind) return; // Whirlwind can trigger without target
-        
-        let attacks = 1;
-        if (this.weapon.flags.doubleHit) attacks = 2;
+        // Determine Attack Angle (Priority: Nearest Enemy -> Movement -> Facing)
+        let angle = 0;
+        const nearest = this.getNearestEnemy(source.x, source.y, 180);
+        if (nearest) {
+            angle = Phaser.Math.Angle.Between(source.x, source.y, nearest.x, nearest.y);
+        } else {
+            // Check movement
+            if (source.body && (Math.abs(source.body.velocity.x) > 10 || Math.abs(source.body.velocity.y) > 10)) {
+                angle = source.body.velocity.angle();
+            } else {
+                // Default facing
+                if (this.cursors.left.isDown || this.wasd.left.isDown) angle = Math.PI;
+                else if (this.cursors.right.isDown || this.wasd.right.isDown) angle = 0;
+                else if (this.cursors.up.isDown || this.wasd.up.isDown) angle = -Math.PI/2;
+                else if (this.cursors.down.isDown || this.wasd.down.isDown) angle = Math.PI/2;
+            }
+        }
         
         // Whirlwind Mode
         if (this.weapon.flags.whirlwind) {
              this.weapon.whirlwindCounter = (this.weapon.whirlwindCounter || 0) + 1;
-             if (this.weapon.whirlwindCounter >= 3) { // Trigger every 3rd attack cycle
+             if (this.weapon.whirlwindCounter >= 3) { 
                  this.weapon.whirlwindCounter = 0;
                  
                  // Whirlwind Visual
-                 this.spawnSlashEffect(source.x, source.y, 0, 2.0, 0xff0000);
-                 this.spawnSlashEffect(source.x, source.y, Math.PI, 2.0, 0xff0000);
-                 this.spawnSlashEffect(source.x, source.y, Math.PI/2, 2.0, 0xff0000);
-                 this.spawnSlashEffect(source.x, source.y, -Math.PI/2, 2.0, 0xff0000);
+                 [0, Math.PI, Math.PI/2, -Math.PI/2].forEach(a => {
+                     this.spawnSlashEffect(source.x, source.y, a, 2.0, 0xff0000);
+                 });
                  
                  this.enemies.getChildren().forEach(e => {
                      if (e.active && Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) < 100) {
                          this.damageEnemy(e, this.calculateDamage() * 0.8, false);
                      }
                  });
-                 return; // Whirlwind replaces normal attack this turn
+                 return; 
              }
         }
-        
-        // Throw Knife
+
+        // "Throw Knife" Upgrade -> Converted to "Phantom Slash" (Ranged Melee Hit)
+        // Migrating remote bullet logic to melee-style as requested
         if (this.weapon.flags.throwKnife) {
             this.weapon.knifeCounter = (this.weapon.knifeCounter || 0) + 1;
             if (this.weapon.knifeCounter >= 2) {
                 this.weapon.knifeCounter = 0;
-                const throwTarget = this.getNearestEnemy(source.x, source.y, 400);
+                const throwTarget = this.getNearestEnemy(source.x, source.y, 350);
                 if (throwTarget) {
-                    const ang = Phaser.Math.Angle.Between(source.x, source.y, throwTarget.x, throwTarget.y);
-                    this.fireProjectile(source, ang, 'weapon_dagger', 400, { 
-                        isKnife: true, 
-                        pierceCount: 1,
-                        damageMult: 0.5 
-                    });
+                    // Instant slash at target location instead of projectile
+                    this.spawnSlashEffect(throwTarget.x, throwTarget.y, Phaser.Math.FloatBetween(0, 6.28), 1.0, 0xffaaaa);
+                    this.damageEnemy(throwTarget, this.calculateDamage() * 0.5, false);
                 }
             }
         }
-
-        if (!target) return;
-
-        const angle = Phaser.Math.Angle.Between(source.x, source.y, target.x, target.y);
+        
+        let attacks = 1;
+        if (this.weapon.flags.doubleHit) attacks = 2;
 
         for (let i = 0; i < attacks; i++) {
-            this.time.delayedCall(i * 100, () => {
+            this.time.delayedCall(i * 120, () => {
                 // Visual Slash
-                this.spawnSlashEffect(source.x, source.y, angle, 1.2, 0xdddddd);
+                // Use a slightly randomized angle for visual variety if multiple attacks
+                const visualAngle = angle + (i % 2 === 0 ? 0 : 0.2);
+                this.spawnSlashEffect(source.x, source.y, visualAngle, 1.2, 0xdddddd);
                 
                 let dmg = this.calculateDamage();
                 
-                // Backstab bonus
+                // Backstab logic
                 if (this.weapon.flags.backstab) {
-                     // Simple check: if angle from player to enemy is similar to enemy velocity angle (chasing player) 
-                     // Actually simple chaser faces player. Backstab is hard in 2D topdown without explicit facing var.
-                     // Assume backstab if player is moving towards enemy? Or just flat chance?
-                     // Let's use position: if player is "behind" enemy relative to center of map? 
-                     // Let's simplified: 30% chance or if player is moving same dir as enemy (hard to track).
-                     // Better: If player velocity dot product enemy velocity > 0 (moving same direction)
-                     // But enemies chase player. So mostly facing player. 
-                     // Let's make it a chance based on positioning for now (Flanking).
-                     if (Math.random() < 0.4) {
+                     // Simplified backstab: Chance
+                     if (Math.random() < 0.3) {
                          dmg *= 1.5;
-                         this.createFloatingText(target.x, target.y - 20, "背刺!", true, '#ff0000');
+                         this.createFloatingText(source.x, source.y - 30, "背刺!", true, '#ff0000');
                      }
                 }
                 
@@ -3860,20 +3814,39 @@ class GameScene extends Phaser.Scene {
                     }
                 }
 
-                this.damageEnemy(target, dmg, false);
-                
-                if (this.weapon.flags.bleed) {
-                    if (!target.bleedStacks) target.bleedStacks = 0;
-                    target.bleedStacks++;
-                    for(let k=1; k<=3; k++) {
-                        this.time.delayedCall(k*500, () => {
-                            if(target.active) {
-                                this.damageEnemy(target, 2, false);
-                                this.spawnHitEffect(target.x, target.y, 'blood');
-                            }
-                        });
+                // Melee Hitbox Check (Sector)
+                const hitEnemies = [];
+                const check = (grp) => {
+                    grp.getChildren().forEach(e => {
+                        if (e.active && Phaser.Math.Distance.Between(source.x, source.y, e.x, e.y) < range) {
+                             const a = Phaser.Math.Angle.Between(source.x, source.y, e.x, e.y);
+                             // ~90 degree arc (0.8 rads approx 45 deg each side)
+                             if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) < 0.8) { 
+                                 hitEnemies.push(e);
+                             }
+                        }
+                    });
+                };
+                check(this.enemies);
+                check(this.bossGroup);
+
+                hitEnemies.forEach(e => {
+                    this.damageEnemy(e, dmg, false);
+                    this.spawnHitEffect(e.x, e.y, 'blood');
+                    
+                    if (this.weapon.flags.bleed) {
+                        if (!e.bleedStacks) e.bleedStacks = 0;
+                        e.bleedStacks++;
+                        for(let k=1; k<=3; k++) {
+                            this.time.delayedCall(k*500, () => {
+                                if(e.active) {
+                                    this.damageEnemy(e, 2, false);
+                                    this.spawnHitEffect(e.x, e.y, 'blood');
+                                }
+                            });
+                        }
                     }
-                }
+                });
             });
         }
     }
