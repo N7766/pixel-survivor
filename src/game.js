@@ -15,7 +15,7 @@ const WORLD_HEIGHT = 1200;
 
 // Colors
 const COLOR_BG = 0x222222;
-const COLOR_PLAYER = 0x00ff00; // Bright Green
+// Default player color will be overridden by Hero color
 const COLOR_BULLET = 0xffff00; // Yellow
 const COLOR_ORBIT = 0x0088ff;  // Blue (Orbit weapon)
 const COLOR_XP = 0x00ffff;     // Cyan
@@ -37,9 +37,124 @@ const BOSS_COLORS = {
     firelord: 0x8b0000  // Dark Red
 };
 
-// Base Stats
-const PLAYER_SPEED_BASE = 120;
-const PLAYER_HP_BASE = 5;
+// ----------------------------------------------------------------------------
+// Meta Progression (Talents)
+// ----------------------------------------------------------------------------
+const TALENT_CONFIG = [
+    { id: 'health', name: '强健体魄', description: '永久生命上限 +1', cost: 100, maxLevel: 5, effectType: 'stat_add', effectKey: 'maxHp', effectValue: 1, prerequisites: [] },
+    { id: 'speed', name: '坚实步伐', description: '永久移动速度 +5%', cost: 150, maxLevel: 5, effectType: 'stat_mult', effectKey: 'speed', effectValue: 0.05, prerequisites: [] },
+    { id: 'damage', name: '熟练射击', description: '永久子弹伤害 +1\n(需要: 坚实步伐 Lv.1)', cost: 200, maxLevel: 3, effectType: 'stat_add', effectKey: 'damage', effectValue: 1, prerequisites: [{id: 'speed', level: 1}] },
+    { id: 'shield', name: '生存本能', description: '每局开始自带 1 次护盾格挡\n(需要: 强健体魄 Lv.1)', cost: 300, maxLevel: 1, effectType: 'special', effectKey: 'startShield', effectValue: 1, prerequisites: [{id: 'health', level: 1}] },
+    { id: 'xp', name: '博学多才', description: '初始经验值 +5', cost: 100, maxLevel: 5, effectType: 'special', effectKey: 'startXp', effectValue: 5, prerequisites: [] }
+];
+
+const SHOP_ITEMS = [
+    { id: 'heal_full', name: '恢复生命', description: '立即回满 HP。', price: 50, type: 'instant' },
+    { id: 'temp_speed', name: '临时移速提升', description: '20 秒内移动速度 +30%。', price: 80, type: 'buff', duration: 20000 },
+    { id: 'temp_fire', name: '临时攻速提升', description: '20 秒内攻击间隔减半。', price: 100, type: 'buff', duration: 20000 },
+    { id: 'perm_dmg', name: '永久伤害 +1', description: '本局剩余时间中增加子弹伤害。', price: 200, type: 'perm' }
+];
+
+const EVENT_CONFIG = [
+    {
+        id: 'black_market',
+        title: '黑市交易',
+        description: '一个神秘的商人向你兜售危险的物品...',
+        choices: [
+            { 
+                text: '献祭: 失去 2 点最大生命，获得 200 金币', 
+                apply: (scene) => { 
+                    scene.playerStats.maxHp = Math.max(1, scene.playerStats.maxHp - 2); 
+                    if (scene.playerStats.hp > scene.playerStats.maxHp) scene.playerStats.hp = scene.playerStats.maxHp;
+                    scene.gold += 200; 
+                    scene.updateUI(); 
+                    scene.createFloatingText(scene.player.x, scene.player.y - 50, "交易完成", true, '#ff0000');
+                }
+            },
+            { 
+                text: '贪婪: 跳过 60 秒 (敌人变强)，获得一个随机英雄级升级', 
+                apply: (scene) => {
+                    scene.survivalTime += 60;
+                    const heroics = scene.upgradePool.filter(u => u.rarity === 'heroic');
+                    if (heroics.length > 0) {
+                        const up = Phaser.Utils.Array.GetRandom(heroics);
+                        up.apply();
+                        scene.createFloatingText(scene.player.x, scene.player.y - 50, `获得: ${up.name}`, true, '#ffd700');
+                    }
+                }
+            }
+        ]
+    },
+    {
+        id: 'grimoire',
+        title: '诡异魔书',
+        description: '你发现了一本散发着不详气息的古书。',
+        choices: [
+            { 
+                text: '力量代价: 所有敌人血量 +30%，你的伤害 +40%', 
+                apply: (scene) => { 
+                    scene.eventGlobalStats.enemyHpMult += 0.3;
+                    scene.eventGlobalStats.playerDmgMult += 0.4;
+                    scene.createFloatingText(scene.player.x, scene.player.y - 50, "力量涌动!", true, '#ff00ff');
+                }
+            },
+            { 
+                text: '鲜血契约: 未来 60 秒无法回血，但造成双倍伤害', 
+                apply: (scene) => {
+                    scene.eventGlobalStats.noRegen = true;
+                    scene.eventGlobalStats.noRegenTimer = 60000;
+                    scene.eventGlobalStats.tempDmgMult = 2.0;
+                    scene.createFloatingText(scene.player.x, scene.player.y - 50, "鲜血契约生效!", true, '#ff0000');
+                }
+            }
+        ]
+    },
+    {
+        id: 'villager',
+        title: '迷路村民',
+        description: '一个村民被怪物包围了，瑟瑟发抖。',
+        choices: [
+            { 
+                text: '护送: 接下来 60 秒经验获取 +50%', 
+                apply: (scene) => { 
+                    scene.eventGlobalStats.xpMult = 1.5;
+                    scene.eventGlobalStats.xpBuffTimer = 60000;
+                    scene.createFloatingText(scene.player.x, scene.player.y - 50, "经验加成生效!", true, '#00ffff');
+                }
+            },
+            { 
+                text: '无视: 抢走 100 金币，但引来一波精英怪', 
+                apply: (scene) => {
+                    scene.gold += 100;
+                    scene.updateUI();
+                    for(let i=0; i<5; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = 400;
+                        scene.createEnemy('elite_knight', scene.player.x + Math.cos(angle)*dist, scene.player.y + Math.sin(angle)*dist);
+                    }
+                    scene.createFloatingText(scene.player.x, scene.player.y - 50, "强敌来袭!", true, '#ff0000');
+                }
+            }
+        ]
+    }
+];
+
+const SAVE_KEY = 'survivor_soul_points';
+
+const Persistence = {
+    load: () => {
+        try {
+            const data = localStorage.getItem(SAVE_KEY);
+            return data ? JSON.parse(data) : { soulPoints: 0, talents: {} };
+        } catch (e) { return { soulPoints: 0, talents: {} }; }
+    },
+    save: (data) => {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    },
+    getTalentLevel: (talents, id) => talents[id] || 0
+};
+
+// Base Stats (Used as fallback or reference)
 const MAGNET_RADIUS_BASE = 100;
 const COLLECT_RADIUS_BASE = 32; 
 const AUTO_ATTACK_RANGE_BASE = 250; 
@@ -53,6 +168,68 @@ const FONT_STYLE = {
     stroke: '#000000', 
     strokeThickness: 2 
 };
+
+// ----------------------------------------------------------------------------
+// Hero Definitions
+// ----------------------------------------------------------------------------
+const HEROES = [
+    {
+        id: 'archer',
+        name: '迅捷射手',
+        description: '身手矫健，射速极快。\n被动：每5级额外提升10%移动速度。',
+        color: 0x00ff00, // Green
+        stats: {
+            maxHp: 3,
+            speed: 160, 
+            cooldown: 500, 
+            damage: 1,
+            range: 300 
+        },
+        passive: 'speed_growth'
+    },
+    {
+        id: 'tank',
+        name: '重甲守卫',
+        description: '皮糙肉厚，自带护盾。\n被动：出生自带1层护盾，且护盾恢复更快。',
+        color: 0x0000ff, // Blue
+        stats: {
+            maxHp: 8,
+            speed: 90, 
+            cooldown: 900,
+            damage: 2, 
+            range: 200
+        },
+        passive: 'shield_master'
+    },
+    {
+        id: 'fanatic',
+        name: '狂热信徒',
+        description: '以战养战。\n被动：击杀敌人有 5% 概率恢复 1 点生命。',
+        color: 0xff0000, // Red
+        stats: {
+            maxHp: 5,
+            speed: 120,
+            cooldown: 700,
+            damage: 1,
+            range: 250
+        },
+        passive: 'lifesteal'
+    },
+    {
+        id: 'mage',
+        name: '时间行者',
+        description: '掌控时空。\n被动：子弹自带微弱追踪，且有概率触发双倍射速。',
+        color: 0x9900ff, // Purple
+        stats: {
+            maxHp: 4,
+            speed: 130,
+            cooldown: 800,
+            damage: 1,
+            range: 250
+        },
+        passive: 'time_magic'
+    }
+];
 
 // ----------------------------------------------------------------------------
 // Enemy Definitions (30+ Types)
@@ -121,16 +298,20 @@ class BootScene extends Phaser.Scene {
     constructor() { super('BootScene'); }
 
     create() {
-        // 1. Player
-        this.createRectTexture('player', COLOR_PLAYER, 12, 12);
+        // 1. Hero Textures (Dynamic based on HEROES)
+        HEROES.forEach(hero => {
+             this.createRectTexture(`hero_${hero.id}`, hero.color, 12, 12);
+        });
+        
+        // 2. Player Clone texture
         this.createRectTexture('player_clone', 0x00aaaa, 12, 12);
 
-        // 2. Enemies
+        // 3. Enemies
         Object.values(ENEMY_TYPES).forEach(type => {
             this.createRectTexture(`enemy_${type.id}`, type.color, type.size, type.size);
         });
 
-        // 3. Projectiles & Objects
+        // 4. Projectiles & Objects
         this.createRectTexture('bullet', COLOR_BULLET, 4, 4);
         this.createCircleTexture('orbit_orb', COLOR_ORBIT, 4);
         this.createCircleTexture('orbit_blade', 0xeeeeee, 6); 
@@ -139,17 +320,17 @@ class BootScene extends Phaser.Scene {
         this.createCircleTexture('bomb', 0x333333, 6); 
         this.createCircleTexture('black_hole', 0x110033, 10); 
 
-        // 4. Pickups & FX
+        // 5. Pickups & FX
         this.createCircleTexture('gem', COLOR_XP, 3);
         this.createRectTexture('heart', COLOR_HEART, 6, 6);
         this.createRectTexture('particle', COLOR_PARTICLE, 2, 2);
         
-        // 5. Bosses
+        // 6. Bosses
         Object.keys(BOSS_COLORS).forEach(key => {
             this.createRectTexture(`boss_${key}`, BOSS_COLORS[key], 20, 20);
         });
 
-        // 6. Background Grid
+        // 7. Background Grid
         let g = this.make.graphics({x:0, y:0, add:false});
         g.fillStyle(COLOR_BG, 1);
         g.fillRect(0, 0, 32, 32);
@@ -176,25 +357,339 @@ class BootScene extends Phaser.Scene {
 }
 
 // ----------------------------------------------------------------------------
-// Scene 2: MainMenuScene
+// Scene 2: MainMenuScene (Hero Selection)
 // ----------------------------------------------------------------------------
 class MainMenuScene extends Phaser.Scene {
     constructor() { super('MainMenuScene'); }
 
     create() {
-        this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 30, 'PIXEL SURVIVOR', { ...FONT_STYLE, fontSize: '32px', strokeThickness: 4 }).setOrigin(0.5);
-        let t = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 20, '按回车键开始游戏', { ...FONT_STYLE, fontSize: '16px', fill: '#cccccc' }).setOrigin(0.5);
-        this.tweens.add({ targets: t, alpha: 0, duration: 800, yoyo: true, repeat: -1 });
-        this.input.keyboard.on('keydown-ENTER', () => this.scene.start('GameScene'));
-        this.input.on('pointerdown', () => this.scene.start('GameScene'));
+        // Title
+        this.add.text(GAME_WIDTH/2, 25, 'PIXEL SURVIVOR', { ...FONT_STYLE, fontSize: '32px', strokeThickness: 4, fill: '#ffffff' }).setOrigin(0.5);
+        this.add.text(GAME_WIDTH/2, 55, '选择英雄', { ...FONT_STYLE, fontSize: '18px', fill: '#ffff00' }).setOrigin(0.5);
+
+        this.selectedHeroIndex = 0;
+        this.heroCards = [];
+
+        // Layout Parameters
+        const cardWidth = 100;
+        const cardHeight = 140;
+        const spacing = 15;
+        const totalWidth = HEROES.length * cardWidth + (HEROES.length - 1) * spacing;
+        const startX = (GAME_WIDTH - totalWidth) / 2 + cardWidth / 2;
+        const centerY = GAME_HEIGHT / 2;
+
+        HEROES.forEach((hero, index) => {
+            const x = startX + index * (cardWidth + spacing);
+            this.createHeroCard(hero, index, x, centerY, cardWidth, cardHeight);
+        });
+
+        // Passive Description Area (Fixed position at bottom)
+        this.descText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 60, '', { ...FONT_STYLE, fontSize: '14px', fill: '#00ffff', align: 'center', wordWrap: { width: 440 }, stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+        
+        // Talent Button
+        const btnTalents = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 35, '[ 天赋树 ]', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700' }).setOrigin(0.5).setInteractive();
+        btnTalents.on('pointerdown', () => this.scene.start('TalentScene'));
+        btnTalents.on('pointerover', () => btnTalents.setScale(1.1));
+        btnTalents.on('pointerout', () => btnTalents.setScale(1.0));
+
+        // Hint Text
+        this.tipText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 15, '按 ← / → 切换英雄，按 Enter 或双击开始游戏', { ...FONT_STYLE, fontSize: '12px', fill: '#888888' }).setOrigin(0.5);
+
+        // Inputs
+        this.input.keyboard.on('keydown-LEFT', () => {
+            this.selectedHeroIndex = (this.selectedHeroIndex - 1 + HEROES.length) % HEROES.length;
+            this.updateSelection();
+        });
+        this.input.keyboard.on('keydown-RIGHT', () => {
+            this.selectedHeroIndex = (this.selectedHeroIndex + 1) % HEROES.length;
+            this.updateSelection();
+        });
+        this.input.keyboard.on('keydown-ENTER', () => this.startGame());
+
+        this.updateSelection();
+    }
+
+    createHeroCard(hero, index, x, y, w, h) {
+        const container = this.add.container(x, y);
+        
+        // Background
+        const bg = this.add.rectangle(0, 0, w, h, 0x333333).setStrokeStyle(2, 0x555555);
+        
+        // Hero Icon (Centered top half)
+        const icon = this.add.sprite(0, -35, `hero_${hero.id}`).setScale(3);
+        
+        // Name
+        const name = this.add.text(0, -5, hero.name, { ...FONT_STYLE, fontSize: '14px', fontStyle: 'bold', fill: '#ffffff' }).setOrigin(0.5);
+        
+        // Stats
+        const statsStr = `HP: ${hero.stats.maxHp}\n攻: ${hero.stats.damage}\n速: ${hero.stats.speed}`;
+        const statsText = this.add.text(0, 35, statsStr, { ...FONT_STYLE, fontSize: '11px', fill: '#cccccc', align: 'center', lineHeight: 16 }).setOrigin(0.5);
+
+        container.add([bg, icon, name, statsText]);
+        
+        // Interactive Logic
+        bg.setInteractive();
+        
+        // Single Click to Select
+        bg.on('pointerdown', () => {
+            const now = this.time.now;
+            const lastClick = bg.lastClickTime || 0;
+            
+            if (now - lastClick < 300 && this.selectedHeroIndex === index) {
+                // Double Click
+                this.startGame();
+            } else {
+                // Single Click
+                this.selectedHeroIndex = index;
+                this.updateSelection();
+            }
+            bg.lastClickTime = now;
+        });
+
+        // Hover Effect
+        bg.on('pointerover', () => {
+            if (this.selectedHeroIndex !== index) {
+                bg.setStrokeStyle(2, 0xaaaaaa); // Hover highlight (grayish)
+            }
+        });
+
+        bg.on('pointerout', () => {
+            if (this.selectedHeroIndex !== index) {
+                bg.setStrokeStyle(2, 0x555555); // Reset normal border
+            } else {
+                bg.setStrokeStyle(3, 0xffff00); // Keep selected border
+            }
+        });
+
+        this.heroCards.push({ container, bg, hero });
+    }
+
+    updateSelection() {
+        this.heroCards.forEach((card, index) => {
+            if (index === this.selectedHeroIndex) {
+                // Selected State
+                card.bg.setFillStyle(0x444444);
+                card.bg.setStrokeStyle(3, 0xffff00); // Yellow border
+                card.container.setScale(1.1); // Slightly bigger
+                
+                // Update Description
+                const parts = card.hero.description.split('\n被动：');
+                const passive = parts.length > 1 ? '被动：' + parts[1] : card.hero.description;
+                this.descText.setText(passive);
+            } else {
+                // Unselected State
+                card.bg.setFillStyle(0x333333);
+                card.bg.setStrokeStyle(2, 0x555555); // Gray border
+                card.container.setScale(1.0);
+            }
+        });
+    }
+
+    startGame() {
+        const hero = HEROES[this.selectedHeroIndex];
+        this.scene.start('GameScene', { hero: hero });
     }
 }
 
 // ----------------------------------------------------------------------------
 // Scene 3: GameScene
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Scene 3: TalentScene (Meta Progression)
+// ----------------------------------------------------------------------------
+class TalentScene extends Phaser.Scene {
+    constructor() { super('TalentScene'); }
+
+    create() {
+        this.saveData = Persistence.load();
+
+        // Background
+        this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x111111);
+        
+        // Header
+        this.add.text(GAME_WIDTH/2, 25, '天赋树', { ...FONT_STYLE, fontSize: '28px', fill: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
+        this.pointsText = this.add.text(GAME_WIDTH/2, 55, `灵魂点数: ${this.saveData.soulPoints}`, { ...FONT_STYLE, fontSize: '16px', fill: '#00ffff' }).setOrigin(0.5);
+
+        // Layout Constants
+        const cardWidth = 120;
+        const cardHeight = 80;
+        const cardMarginX = 20;
+        const cardMarginY = 20;
+        const cols = 3;
+        
+        // Calculate grid start position to center it
+        const totalWidth = cols * cardWidth + (cols - 1) * cardMarginX;
+        // Estimate rows based on TALENT_CONFIG length (assuming 5 items = 2 rows)
+        const rows = Math.ceil(TALENT_CONFIG.length / cols);
+        const totalHeight = rows * cardHeight + (rows - 1) * cardMarginY;
+        
+        const startX = (GAME_WIDTH - totalWidth) / 2 + cardWidth / 2;
+        const startY = 90 + cardHeight / 2; // Start below header
+
+        TALENT_CONFIG.forEach((talent, index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+            const x = startX + col * (cardWidth + cardMarginX);
+            const y = startY + row * (cardHeight + cardMarginY);
+
+            this.createTalentCard(x, y, talent, cardWidth, cardHeight);
+        });
+
+        // Back Button
+        const btnBack = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 30, '【 返回主菜单 】', { ...FONT_STYLE, fontSize: '18px', fill: '#ffffff', backgroundColor: '#333333', padding: { x: 10, y: 5 } }).setOrigin(0.5).setInteractive();
+        
+        btnBack.on('pointerdown', () => this.scene.start('MainMenuScene'));
+        btnBack.on('pointerover', () => btnBack.setFill('#ffff00'));
+        btnBack.on('pointerout', () => btnBack.setFill('#ffffff'));
+        
+        this.input.keyboard.on('keydown-ESC', () => this.scene.start('MainMenuScene'));
+        
+        // Description Text Area (Global)
+        this.descText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 70, '', { ...FONT_STYLE, fontSize: '14px', fill: '#cccccc', align: 'center', wordWrap: { width: 400 } }).setOrigin(0.5);
+    }
+
+    createTalentCard(x, y, talent, width, height) {
+        const currentLevel = Persistence.getTalentLevel(this.saveData.talents, talent.id);
+        const isMax = currentLevel >= talent.maxLevel;
+        const cost = talent.cost * (currentLevel + 1); // Simple cost scaling
+        
+        // Check prerequisites
+        let prereqMet = true;
+        if (talent.prerequisites) {
+            talent.prerequisites.forEach(p => {
+                const pLevel = Persistence.getTalentLevel(this.saveData.talents, p.id);
+                if (pLevel < p.level) prereqMet = false;
+            });
+        }
+
+        const canAfford = this.saveData.soulPoints >= cost;
+        const isLocked = !prereqMet;
+
+        const container = this.add.container(x, y);
+
+        // Colors
+        let bgColor, strokeColor, textColor;
+        if (isLocked) { 
+            bgColor = 0x111111; 
+            strokeColor = 0x333333; 
+            textColor = '#555555';
+        } else if (isMax) { 
+            bgColor = 0x222222; 
+            strokeColor = 0xffd700; // Gold border
+            textColor = '#ffffff';
+        } else { 
+            bgColor = 0x333333; 
+            strokeColor = canAfford ? 0xffff00 : 0x666666;
+            textColor = '#ffffff';
+        }
+
+        const bg = this.add.rectangle(0, 0, width, height, bgColor).setStrokeStyle(2, strokeColor);
+        
+        // Text Content
+        const nameText = this.add.text(0, -20, talent.name, { ...FONT_STYLE, fontSize: '14px', fill: textColor, fontStyle: 'bold' }).setOrigin(0.5);
+        const levelText = this.add.text(0, 5, `Lv. ${currentLevel}/${talent.maxLevel}`, { ...FONT_STYLE, fontSize: '12px', fill: isLocked ? '#555555' : '#aaaaaa' }).setOrigin(0.5);
+        
+        let costStr;
+        let costFill = '#ffffff';
+
+        if (isLocked) {
+            costStr = "未解锁";
+            costFill = '#555555';
+        } else if (isMax) {
+            costStr = "已满级";
+            costFill = '#ffd700';
+        } else {
+            costStr = `消耗: ${cost}`;
+            costFill = canAfford ? '#ffff00' : '#ff0000';
+        }
+
+        const costText = this.add.text(0, 25, costStr, { ...FONT_STYLE, fontSize: '12px', fill: costFill }).setOrigin(0.5);
+
+        container.add([bg, nameText, levelText, costText]);
+
+        // Interactions
+        if (!isLocked) {
+            bg.setInteractive();
+
+            bg.on('pointerdown', () => {
+                if (isMax) return;
+                
+                if (canAfford) {
+                    // Purchase Logic
+                    this.saveData.soulPoints -= cost;
+                    this.saveData.talents[talent.id] = currentLevel + 1;
+                    Persistence.save(this.saveData);
+                    
+                    // Visual Feedback
+                    this.pointsText.setText(`灵魂点数: ${this.saveData.soulPoints}`);
+                    
+                    // Flash effect
+                    this.tweens.add({
+                        targets: bg,
+                        strokeAlpha: 0,
+                        duration: 100,
+                        yoyo: true,
+                        repeat: 1
+                    });
+                    
+                    // Float text
+                    const floatTxt = this.add.text(x, y - height/2 - 10, "天赋+1", { ...FONT_STYLE, fontSize: '16px', fill: '#00ff00', strokeThickness: 3 }).setOrigin(0.5);
+                    this.tweens.add({
+                        targets: floatTxt,
+                        y: y - height/2 - 40,
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => floatTxt.destroy()
+                    });
+
+                    // Refresh this card only (or full scene)
+                    // Full restart is easiest to ensure all dependencies update (e.g. unlocks)
+                    this.time.delayedCall(200, () => this.scene.restart());
+                } else {
+                    // Not enough points
+                    this.cameras.main.shake(50, 0.005);
+                    const noPoints = this.add.text(GAME_WIDTH/2, GAME_HEIGHT - 100, "点数不足", { ...FONT_STYLE, fontSize: '18px', fill: '#ff0000', strokeThickness: 3 }).setOrigin(0.5);
+                    this.tweens.add({
+                        targets: noPoints,
+                        alpha: 0,
+                        duration: 1000,
+                        onComplete: () => noPoints.destroy()
+                    });
+                }
+            });
+
+            bg.on('pointerover', () => {
+                if (!isMax) bg.setScale(1.05);
+                bg.setStrokeStyle(2, 0xffffff); // Brighten border
+                this.descText.setText(talent.description);
+                if (isLocked) this.descText.setText("[未解锁] " + talent.description);
+            });
+
+            bg.on('pointerout', () => {
+                if (!isMax) bg.setScale(1.0);
+                bg.setStrokeStyle(2, strokeColor); // Revert border
+                this.descText.setText('');
+            });
+        } else {
+             // Locked interaction (just tooltip)
+             bg.setInteractive();
+             bg.on('pointerover', () => {
+                 this.descText.setText(`[未解锁] ${talent.description}`);
+             });
+             bg.on('pointerout', () => {
+                 this.descText.setText('');
+             });
+        }
+    }
+}
+
 class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
+
+    init(data) {
+        // Load hero data, default to first hero if debug/testing
+        this.heroData = data.hero || HEROES[0];
+    }
 
     create() {
         // --- Game State ---
@@ -202,9 +697,22 @@ class GameScene extends Phaser.Scene {
         this.xp = 0;
         this.xpToNextLevel = 5;
         this.kills = 0;
+        this.gold = 0; // In-run currency
         this.survivalTime = 0;
         this.isGameOver = false;
         this.isChoosingUpgrade = false;
+        this.isShopOpen = false;
+        this.isEventOpen = false;
+        this.nextEventTime = 60; // Start events at 60s
+        this.eventGlobalStats = {
+            enemyHpMult: 1.0,
+            playerDmgMult: 1.0,
+            xpMult: 1.0,
+            noRegen: false,
+            noRegenTimer: 0,
+            tempDmgMult: 1.0,
+            xpBuffTimer: 0
+        };
         this.isPaused = false;
         this.upgradeChoicesCount = 3;
 
@@ -213,12 +721,13 @@ class GameScene extends Phaser.Scene {
         this.bossIntervalMax = 300; 
         this.nextBossTime = Phaser.Math.Between(this.bossIntervalMin, this.bossIntervalMax);
         this.currentBoss = null; 
+        this.bossesKilled = 0; // Track boss kills for currency 
 
-        // Stats
+        // Stats - Initialized from Hero Data
         this.playerStats = {
-            maxHp: PLAYER_HP_BASE,
-            hp: PLAYER_HP_BASE,
-            speed: PLAYER_SPEED_BASE,
+            maxHp: this.heroData.stats.maxHp,
+            hp: this.heroData.stats.maxHp,
+            speed: this.heroData.stats.speed,
             
             xpMagnetRadius: MAGNET_RADIUS_BASE,
             xpCollectRadius: COLLECT_RADIUS_BASE,
@@ -226,7 +735,7 @@ class GameScene extends Phaser.Scene {
             critChance: 0,
             critMultiplier: 2.0, 
             damageMultiplier: 1, 
-            autoAttackRange: AUTO_ATTACK_RANGE_BASE,
+            autoAttackRange: this.heroData.stats.range || AUTO_ATTACK_RANGE_BASE,
             bulletRange: BULLET_LIFETIME_RANGE_BASE, 
             
             isBerserker: false,
@@ -234,6 +743,7 @@ class GameScene extends Phaser.Scene {
             hasBurningAura: false,
             hasChainLightning: false,
             
+            // Shield System
             hasShieldUpgrade: false,
             shieldCharges: 0,
             shieldMaxCharges: 0,
@@ -242,6 +752,9 @@ class GameScene extends Phaser.Scene {
             
             dashUnlocked: false,
             dashCooldown: 0,
+
+            // Passives
+            heroPassive: this.heroData.passive,
 
             heroic: {
                 splitCross: false,
@@ -267,11 +780,23 @@ class GameScene extends Phaser.Scene {
             }
         };
 
+        // Apply Hero Specific Passives (Initialization)
+        if (this.playerStats.heroPassive === 'shield_master') {
+            this.playerStats.hasShieldUpgrade = true;
+            this.playerStats.shieldMaxCharges = 1;
+            this.playerStats.shieldCharges = 1;
+            this.playerStats.shieldCooldown = 15000; // Faster regen for tank
+        }
+        if (this.playerStats.heroPassive === 'time_magic') {
+            // Slight homing by default for mage
+            this.playerStats.heroic.homing = true; // Weak version (reusing logic but maybe check passive id in update)
+        }
+
         // Weapon
         this.weapon = {
             type: 'single', 
-            damage: 1,
-            cooldown: 800,
+            damage: this.heroData.stats.damage,
+            cooldown: this.heroData.stats.cooldown,
             hasOrbit: false,
             orbitCount: 0,
             orbitDamage: 1,
@@ -279,6 +804,45 @@ class GameScene extends Phaser.Scene {
         };
 
         this.initUpgradePool();
+
+        // --- Apply Talents (Meta Progression) ---
+        const savedData = Persistence.load();
+        const talents = savedData.talents || {};
+        let appliedTalents = false;
+
+        TALENT_CONFIG.forEach(t => {
+            const level = Persistence.getTalentLevel(talents, t.id);
+            if (level > 0) {
+                appliedTalents = true;
+                if (t.effectType === 'stat_add') {
+                    if (t.effectKey === 'maxHp') {
+                        this.playerStats.maxHp += t.effectValue * level;
+                        this.playerStats.hp += t.effectValue * level;
+                    } else if (t.effectKey === 'damage') {
+                        this.weapon.damage += t.effectValue * level;
+                    }
+                } else if (t.effectType === 'stat_mult') {
+                    if (t.effectKey === 'speed') {
+                        this.playerStats.speed *= (1 + t.effectValue * level);
+                    }
+                } else if (t.effectType === 'special') {
+                    if (t.effectKey === 'startShield') {
+                        this.playerStats.hasShieldUpgrade = true;
+                        this.playerStats.shieldMaxCharges = Math.max(this.playerStats.shieldMaxCharges, 1);
+                        this.playerStats.shieldCharges = Math.max(this.playerStats.shieldCharges, 1);
+                        if (this.playerStats.shieldCooldown === 20000) this.playerStats.shieldCooldown = 15000;
+                    } else if (t.effectKey === 'startXp') {
+                        this.xp += t.effectValue * level;
+                    }
+                }
+            }
+        });
+
+        if (appliedTalents) {
+            this.time.delayedCall(1000, () => {
+                this.createFloatingText(this.player.x, this.player.y - 60, "已应用天赋加成", true);
+            });
+        }
 
         // --- Physics World & Camera ---
         this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -310,7 +874,7 @@ class GameScene extends Phaser.Scene {
         });
 
         // --- Player ---
-        this.player = this.physics.add.sprite(WORLD_WIDTH/2, WORLD_HEIGHT/2, 'player');
+        this.player = this.physics.add.sprite(WORLD_WIDTH/2, WORLD_HEIGHT/2, `hero_${this.heroData.id}`);
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -323,9 +887,13 @@ class GameScene extends Phaser.Scene {
         this.wasd = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D,
-            space: Phaser.Input.Keyboard.KeyCodes.SPACE
+            space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+            esc: Phaser.Input.Keyboard.KeyCodes.ESC
         });
-        this.input.keyboard.on('keydown-ESC', () => this.togglePause());
+        this.input.keyboard.on('keydown-ESC', () => {
+             if (this.isShopOpen) this.toggleShop();
+             else this.togglePause();
+        });
 
         // --- Timers ---
         this.lastFired = 0;
@@ -413,7 +981,7 @@ class GameScene extends Phaser.Scene {
     }
 
     togglePause() {
-        if (this.isGameOver || this.isChoosingUpgrade) return;
+        if (this.isGameOver || this.isChoosingUpgrade || this.isEventOpen || this.isShopOpen) return;
         this.isPaused = !this.isPaused;
         if (this.isPaused) {
             this.physics.pause();
@@ -429,8 +997,34 @@ class GameScene extends Phaser.Scene {
             this.upgradeContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
             this.upgradeContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
         }
+        
+        if (this.eventContainer.visible) {
+            this.eventContainer.x = this.cameras.main.scrollX + GAME_WIDTH / 2;
+            this.eventContainer.y = this.cameras.main.scrollY + GAME_HEIGHT / 2;
+        }
 
-        if (this.isGameOver || this.isPaused || this.isChoosingUpgrade) return;
+        if (this.isGameOver || this.isPaused || this.isChoosingUpgrade || this.isShopOpen || this.isEventOpen) return;
+
+        // Update Shop overlay position to follow camera if needed (but we used setScrollFactor(0) so container stays put)
+        // However, if we didn't use setScrollFactor on overlay, we'd need to update it.
+        // Since we added overlay to container and container has scrollFactor 0, it should be fine.
+
+        // Event Timers
+        if (this.eventGlobalStats.noRegenTimer > 0) {
+            this.eventGlobalStats.noRegenTimer -= delta;
+            if (this.eventGlobalStats.noRegenTimer <= 0) {
+                this.eventGlobalStats.noRegen = false;
+                this.eventGlobalStats.tempDmgMult = 1.0;
+                this.createFloatingText(this.player.x, this.player.y - 40, "鲜血契约结束", false);
+            }
+        }
+        if (this.eventGlobalStats.xpBuffTimer > 0) {
+            this.eventGlobalStats.xpBuffTimer -= delta;
+            if (this.eventGlobalStats.xpBuffTimer <= 0) {
+                this.eventGlobalStats.xpMult = 1.0;
+                this.createFloatingText(this.player.x, this.player.y - 40, "经验加成结束", false);
+            }
+        }
 
         this.shieldIndicator.clear();
         if (this.playerStats.shieldCharges > 0) {
@@ -457,8 +1051,12 @@ class GameScene extends Phaser.Scene {
         this.survivalTime += delta / 1000;
         this.timeText.setText(`时间: ${this.survivalTime.toFixed(1)} 秒`);
 
-        if (!this.currentBoss && this.survivalTime >= this.nextBossTime) {
-            this.spawnBoss();
+        if (!this.currentBoss) {
+            if (this.survivalTime >= this.nextEventTime && !this.isEventOpen) {
+                this.triggerEvent();
+            } else if (this.survivalTime >= this.nextBossTime) {
+                this.spawnBoss();
+            }
         }
 
         if (this.currentBoss) {
@@ -472,6 +1070,11 @@ class GameScene extends Phaser.Scene {
 
         let fireCooldown = this.weapon.cooldown;
         if (this.playerStats.heroic.lastStand && this.playerStats.hp <= 1) fireCooldown *= 0.5;
+
+        // Mage Time Magic Passive (Occasional rapid fire)
+        if (this.playerStats.heroPassive === 'time_magic' && Math.random() < 0.05) {
+             fireCooldown *= 0.5;
+        }
 
         if (time > this.lastFired + fireCooldown) {
             this.fireWeapon();
@@ -561,7 +1164,7 @@ class GameScene extends Phaser.Scene {
             if (this.playerStats.shieldTimer >= this.playerStats.shieldCooldown) { 
                 this.playerStats.shieldCharges++;
                 this.playerStats.shieldTimer = 0;
-                this.createFloatingText(this.player.x, this.player.y - 20, '护盾恢复', false);
+                this.createFloatingText(this.player.x, this.player.y - 20, '护盾恢复', false, '#00ffff');
             }
         } else {
              this.playerStats.shieldTimer = 0;
@@ -766,7 +1369,9 @@ class GameScene extends Phaser.Scene {
         if (!def) return;
         const enemy = this.enemies.create(x, y, `enemy_${def.id}`);
         enemy.def = def;
-        enemy.hp = def.hp + Math.floor(this.survivalTime / 60);
+        const baseHp = def.hp + Math.floor(this.survivalTime / 60);
+        const hpMult = this.eventGlobalStats ? this.eventGlobalStats.enemyHpMult : 1;
+        enemy.hp = Math.floor(baseHp * hpMult);
         enemy.speed = def.speed;
         enemy.typeId = def.id;
         enemy.isBuffed = false;
@@ -1050,7 +1655,10 @@ class GameScene extends Phaser.Scene {
             
             if (destroy) b.destroy();
 
-            if (b.active && this.playerStats.heroic.homing && b.isHoming) {
+            // Mage passive weak homing OR Heroic Homing
+            const isHoming = (this.playerStats.heroic.homing) || (this.playerStats.heroPassive === 'time_magic');
+            
+            if (b.active && isHoming && b.isHoming) {
                 let nearest = null;
                 let minDist = 300;
                 this.enemies.getChildren().forEach(e => {
@@ -1060,7 +1668,8 @@ class GameScene extends Phaser.Scene {
                 if (nearest) {
                     const targetAngle = Phaser.Math.Angle.Between(b.x, b.y, nearest.x, nearest.y);
                     const currentAngle = b.rotation;
-                    const nextAngle = Phaser.Math.Angle.RotateTo(currentAngle, targetAngle, 0.1); 
+                    const turnRate = this.playerStats.heroic.homing ? 0.1 : 0.03; // Weak homing for passive
+                    const nextAngle = Phaser.Math.Angle.RotateTo(currentAngle, targetAngle, turnRate); 
                     b.setRotation(nextAngle);
                     const speed = 350;
                     b.setVelocity(Math.cos(nextAngle) * speed, Math.sin(nextAngle) * speed);
@@ -1467,6 +2076,7 @@ class GameScene extends Phaser.Scene {
 
     killBoss() {
         this.currentBoss = null;
+        this.bossesKilled++;
         this.bossUI.setVisible(false);
         this.nextBossTime = this.survivalTime + Phaser.Math.Between(this.bossIntervalMin, this.bossIntervalMax);
         
@@ -1550,6 +2160,10 @@ class GameScene extends Phaser.Scene {
         bullet.isHoming = true; 
 
         let damage = this.weapon.damage * this.playerStats.damageMultiplier;
+        if (this.eventGlobalStats) {
+            damage *= this.eventGlobalStats.playerDmgMult * this.eventGlobalStats.tempDmgMult;
+        }
+
         if (this.playerStats.isBerserker) {
             const missingHpPct = 1 - (this.playerStats.hp / this.playerStats.maxHp);
             damage *= (1 + 0.5 * missingHpPct);
@@ -1668,6 +2282,7 @@ class GameScene extends Phaser.Scene {
     }
     
     healPlayer(amount) {
+        if (this.eventGlobalStats && this.eventGlobalStats.noRegen) return;
         if (this.playerStats.hp < this.playerStats.maxHp) {
             this.playerStats.hp = Math.min(this.playerStats.hp + amount, this.playerStats.maxHp);
             this.updateUI();
@@ -1675,10 +2290,10 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createFloatingText(x, y, text, isCrit) {
-        const color = isCrit ? '#ffff00' : '#ffffff';
+    createFloatingText(x, y, text, isCrit, colorOverride = null) {
+        const color = colorOverride ? colorOverride : (isCrit ? '#ffff00' : '#ffffff');
         const fontSize = isCrit ? '16px' : '12px';
-        const txt = this.add.text(x, y, text, { ...FONT_STYLE, fontSize: fontSize, fill: color, strokeThickness: isCrit ? 3 : 1 });
+        const txt = this.add.text(x, y, text, { ...FONT_STYLE, fontSize: fontSize, fill: color, strokeThickness: isCrit ? 3 : 1 }).setDepth(200);
         txt.setOrigin(0.5);
         this.tweens.add({
             targets: txt,
@@ -1712,6 +2327,13 @@ class GameScene extends Phaser.Scene {
             targets.forEach(t => this.damageEnemy(t, 1));
         }
         
+        // Fanatic Passive
+        if (this.playerStats.heroPassive === 'lifesteal') {
+            if (Math.random() < 0.05) { // 5% chance
+                this.healPlayer(1);
+            }
+        }
+        
         if (this.playerStats.heroic.timeFreeze && !this.isTimeFrozen) {
             this.killStreak++;
             this.killStreakTimer = 1000; 
@@ -1732,6 +2354,12 @@ class GameScene extends Phaser.Scene {
         gem.setCircle(3);
         enemy.destroy();
         this.kills++;
+        
+        // Gold Drop
+        const goldDrop = Math.max(1, enemy.def.xp || 1);
+        this.gold += goldDrop;
+        this.createFloatingText(enemy.x, enemy.y - 15, `+${goldDrop} 金币`, false, '#ffd700');
+        
         this.updateUI();
     }
 
@@ -1766,6 +2394,7 @@ class GameScene extends Phaser.Scene {
         
         if (this.playerStats.hasShieldUpgrade && this.playerStats.shieldCharges > 0) {
             this.playerStats.shieldCharges--;
+            this.playerStats.shieldTimer = 0; // Reset timer on use
             this.createFloatingText(this.player.x, this.player.y - 20, '护盾格挡!', false); 
             const circle = this.add.circle(this.player.x, this.player.y, 25, 0x00ffff, 0.4);
             this.tweens.add({targets: circle, scale: 2, alpha: 0, duration: 300, onComplete: () => circle.destroy()});
@@ -1793,7 +2422,7 @@ class GameScene extends Phaser.Scene {
         if (this.playerStats.hp <= 0) {
             this.isGameOver = true;
             this.physics.pause();
-            this.time.delayedCall(1000, () => this.scene.start('GameOverScene', { time: this.survivalTime, kills: this.kills, level: this.level }));
+            this.time.delayedCall(1000, () => this.scene.start('GameOverScene', { time: this.survivalTime, kills: this.kills, level: this.level, bosses: this.bossesKilled }));
         }
     }
     
@@ -1824,6 +2453,12 @@ class GameScene extends Phaser.Scene {
     handlePickGem(player, gem) {
         gem.destroy();
         this.xp++;
+        // Apply Event XP Buff
+        if (this.eventGlobalStats && this.eventGlobalStats.xpBuffTimer > 0) {
+             const extra = Math.ceil(1 * (this.eventGlobalStats.xpMult - 1));
+             this.xp += extra;
+        }
+
         if (this.xp >= this.xpToNextLevel) this.levelUp();
         this.updateUI();
     }
@@ -1893,7 +2528,17 @@ class GameScene extends Phaser.Scene {
         this.xpBarFill = this.add.rectangle((GAME_WIDTH - (GAME_WIDTH - 40)) / 2, GAME_HEIGHT - 10, 0, 8, COLOR_XP).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
         this.levelText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 22, '', FONT_STYLE).setOrigin(0.5).setScrollFactor(0).setDepth(102);
 
+        // Gold UI
+        this.goldText = this.add.text(10, 25, '金币: 0', { ...FONT_STYLE, fill: '#ffd700' }).setScrollFactor(0).setDepth(100);
+
+        // Shop Button
+        const btnShop = this.add.text(GAME_WIDTH - 60, GAME_HEIGHT - 30, '[ 商店 ]', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700', backgroundColor: '#000000' }).setPadding(5).setOrigin(0.5).setScrollFactor(0).setDepth(200).setInteractive();
+        btnShop.on('pointerdown', () => this.toggleShop());
+
         this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, '暂停中 - 按 ESC 继续', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+        
+        this.createShopUI();
+        this.createEventUI();
         this.updateUI();
     }
 
@@ -1901,9 +2546,188 @@ class GameScene extends Phaser.Scene {
         this.hpText.setText(`生命: ${Math.ceil(this.playerStats.hp)}/${this.playerStats.maxHp}`);
         this.killText.setText(`击杀: ${this.kills}`);
         this.levelText.setText(`等级 ${this.level}`);
+        this.goldText.setText(`金币: ${this.gold}`);
         const maxWidth = GAME_WIDTH - 42;
         const ratio = Math.min(this.xp / this.xpToNextLevel, 1);
         this.xpBarFill.width = maxWidth * ratio;
+    }
+
+    createShopUI() {
+        this.shopOverlay = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5).setInteractive();
+        this.shopOverlay.on('pointerdown', () => this.toggleShop());
+
+        this.shopContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(600).setVisible(false).setScrollFactor(0);
+        this.shopContainer.add(this.shopOverlay); // Add overlay to container so it shows/hides with it
+
+        const bg = this.add.rectangle(0, 0, 300, 220, 0x111111, 0.95).setStrokeStyle(2, 0xffd700).setInteractive(); // Bg interactive to block clicks
+        const title = this.add.text(0, -90, '商 店', { ...FONT_STYLE, fontSize: '20px', fill: '#ffd700' }).setOrigin(0.5);
+        const closeBtn = this.add.text(130, -90, 'X', { ...FONT_STYLE, fontSize: '16px', fill: '#ff0000' }).setOrigin(0.5).setInteractive();
+        closeBtn.on('pointerdown', () => this.toggleShop());
+        
+        this.shopContainer.add([bg, title, closeBtn]);
+        
+        this.shopSlots = [];
+        for(let i=0; i<3; i++) {
+            const y = -40 + i * 55;
+            const itemBg = this.add.rectangle(0, y, 260, 45, 0x333333).setInteractive();
+            const nameText = this.add.text(-120, y - 8, '', { ...FONT_STYLE, fontSize: '14px', fill: '#ffffff' }).setOrigin(0, 0.5);
+            const descText = this.add.text(-120, y + 8, '', { ...FONT_STYLE, fontSize: '10px', fill: '#cccccc' }).setOrigin(0, 0.5);
+            const priceText = this.add.text(120, y, '', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700' }).setOrigin(1, 0.5);
+            
+            this.shopContainer.add([itemBg, nameText, descText, priceText]);
+            this.shopSlots.push({ bg: itemBg, name: nameText, desc: descText, price: priceText, data: null });
+            
+            itemBg.on('pointerdown', (pointer, localX, localY, event) => {
+                event.stopPropagation(); // Prevent closing shop when clicking item
+                if (this.isShopOpen && this.shopSlots[i].data) {
+                    this.buyItem(this.shopSlots[i].data);
+                }
+            });
+            itemBg.on('pointerover', () => itemBg.setFillStyle(0x555555));
+            itemBg.on('pointerout', () => itemBg.setFillStyle(0x333333));
+        }
+    }
+
+    toggleShop() {
+        if (this.isGameOver || this.isChoosingUpgrade || this.isEventOpen) return;
+        
+        this.isShopOpen = !this.isShopOpen;
+        
+        if (this.isShopOpen) {
+            this.physics.pause();
+            this.shopContainer.setVisible(true);
+            this.generateShopItems();
+            
+            // Re-center container to screen center
+            this.shopContainer.setPosition(GAME_WIDTH/2, GAME_HEIGHT/2);
+            // Re-center overlay relative to container (which is at center)
+            this.shopOverlay.setPosition(0, 0); 
+            
+        } else {
+            this.physics.resume();
+            this.shopContainer.setVisible(false);
+        }
+    }
+
+    createEventUI() {
+        this.eventContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setDepth(800).setVisible(false).setScrollFactor(0);
+        
+        const overlay = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85).setInteractive();
+        const panel = this.add.rectangle(0, 0, 360, 240, 0x220022).setStrokeStyle(2, 0xff00ff);
+        
+        this.eventTitle = this.add.text(0, -90, '', { ...FONT_STYLE, fontSize: '22px', fill: '#ff00ff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+        this.eventDesc = this.add.text(0, -50, '', { ...FONT_STYLE, fontSize: '14px', fill: '#cccccc', align: 'center', wordWrap: { width: 340 } }).setOrigin(0.5);
+        
+        this.eventContainer.add([overlay, panel, this.eventTitle, this.eventDesc]);
+        
+        this.eventButtons = [];
+        for (let i = 0; i < 2; i++) {
+            const y = 20 + i * 60;
+            const btnBg = this.add.rectangle(0, y, 320, 50, 0x330033).setStrokeStyle(1, 0x880088).setInteractive();
+            const btnText = this.add.text(0, y, '', { ...FONT_STYLE, fontSize: '12px', fill: '#ffffff', align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5);
+            
+            this.eventContainer.add([btnBg, btnText]);
+            this.eventButtons.push({ bg: btnBg, text: btnText, choice: null });
+            
+            btnBg.on('pointerdown', () => {
+                if (this.isEventOpen && this.eventButtons[i].choice) {
+                    this.selectEventOption(this.eventButtons[i].choice);
+                }
+            });
+            btnBg.on('pointerover', () => btnBg.setFillStyle(0x550055));
+            btnBg.on('pointerout', () => btnBg.setFillStyle(0x330033));
+        }
+    }
+
+    triggerEvent() {
+        this.isEventOpen = true;
+        this.physics.pause();
+        
+        const event = Phaser.Utils.Array.GetRandom(EVENT_CONFIG);
+        this.eventTitle.setText(event.title);
+        this.eventDesc.setText(event.description);
+        
+        this.eventButtons.forEach((btn, i) => {
+            if (i < event.choices.length) {
+                const choice = event.choices[i];
+                btn.text.setText(choice.text);
+                btn.choice = choice;
+                btn.bg.setVisible(true);
+                btn.text.setVisible(true);
+            } else {
+                btn.bg.setVisible(false);
+                btn.text.setVisible(false);
+            }
+        });
+        
+        this.eventContainer.setVisible(true);
+    }
+
+    selectEventOption(choice) {
+        choice.apply(this);
+        
+        this.isEventOpen = false;
+        this.eventContainer.setVisible(false);
+        this.physics.resume();
+        
+        // Schedule next event (60-90s later)
+        this.nextEventTime = this.survivalTime + Phaser.Math.Between(60, 90);
+    }
+
+    generateShopItems() {
+        // Pick 3 random items
+        const items = [];
+        for(let i=0; i<3; i++) {
+            items.push(Phaser.Utils.Array.GetRandom(SHOP_ITEMS));
+        }
+        
+        this.shopSlots.forEach((slot, i) => {
+            const item = items[i];
+            slot.data = item;
+            slot.name.setText(item.name);
+            slot.desc.setText(item.description);
+            slot.price.setText(`${item.price} G`);
+        });
+    }
+
+    buyItem(item) {
+        if (this.gold >= item.price) {
+            this.gold -= item.price;
+            this.updateUI();
+            this.applyShopEffect(item);
+            this.createFloatingText(GAME_WIDTH/2, GAME_HEIGHT/2 - 50, "购买成功", true);
+        } else {
+            this.createFloatingText(GAME_WIDTH/2, GAME_HEIGHT/2, "金币不足", false);
+            this.cameras.main.shake(50, 0.005);
+        }
+    }
+
+    applyShopEffect(item) {
+        if (item.type === 'instant') {
+            if (item.id === 'heal_full') {
+                this.playerStats.hp = this.playerStats.maxHp;
+                this.updateUI();
+            }
+        } else if (item.type === 'perm') {
+            if (item.id === 'perm_dmg') this.weapon.damage += 1;
+            // Add other perm effects if needed
+        } else if (item.type === 'buff') {
+            if (item.id === 'temp_speed') {
+                const oldSpeed = this.playerStats.speed;
+                this.playerStats.speed *= 1.3;
+                this.time.delayedCall(item.duration, () => {
+                    this.playerStats.speed = oldSpeed; // Simple revert, assuming no other mods interact badly
+                    this.createFloatingText(this.player.x, this.player.y - 40, "加速效果结束", false);
+                });
+            } else if (item.id === 'temp_fire') {
+                const oldCd = this.weapon.cooldown;
+                this.weapon.cooldown *= 0.5;
+                this.time.delayedCall(item.duration, () => {
+                    this.weapon.cooldown = oldCd;
+                    this.createFloatingText(this.player.x, this.player.y - 40, "攻速效果结束", false);
+                });
+            }
+        }
     }
 
     createUpgradeUI() {
@@ -1948,6 +2772,12 @@ class GameScene extends Phaser.Scene {
         
         this.playerStats.hp = this.playerStats.maxHp;
         this.createFloatingText(this.player.x, this.player.y - 40, '等级提升，生命全满！', true);
+
+        // Archer Passive: Speed Growth
+        if (this.playerStats.heroPassive === 'speed_growth' && this.level % 5 === 0) {
+            this.playerStats.speed *= 1.1;
+            this.createFloatingText(this.player.x, this.player.y - 60, '被动触发：移速提升!', true);
+        }
         
         this.updateUI();
 
@@ -2054,17 +2884,35 @@ class GameOverScene extends Phaser.Scene {
     constructor() { super('GameOverScene'); }
     init(data) { this.stats = data; }
     create() {
+        // Calculate Soul Points
+        // 1 point per 10 seconds
+        // 1 point per 20 kills
+        // 10 points per boss
+        const timePoints = Math.floor(this.stats.time / 10);
+        const killPoints = Math.floor(this.stats.kills / 20);
+        const bossPoints = (this.stats.bosses || 0) * 10;
+        const totalPoints = timePoints + killPoints + bossPoints;
+
+        // Save
+        const saveData = Persistence.load();
+        saveData.soulPoints = (saveData.soulPoints || 0) + totalPoints;
+        Persistence.save(saveData);
+
         this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.9);
-        this.add.text(GAME_WIDTH/2, 60, '游戏结束', { ...FONT_STYLE, fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
-        const info = `生存时间: ${this.stats.time.toFixed(1)} 秒\n总击杀: ${this.stats.kills}\n最终等级: ${this.stats.level}`;
-        this.add.text(GAME_WIDTH/2, 140, info, { ...FONT_STYLE, fontSize: '16px', align: 'center', lineHeight: 24 }).setOrigin(0.5);
+        this.add.text(GAME_WIDTH/2, 50, '游戏结束', { ...FONT_STYLE, fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
         
-        const btnRetry = this.add.text(GAME_WIDTH/2, 220, '[ 按 R 重新开始 ]', { ...FONT_STYLE, fontSize: '18px' }).setOrigin(0.5).setInteractive();
-        const btnMenu = this.add.text(GAME_WIDTH/2, 250, '[ 按 M 返回菜单 ]', { ...FONT_STYLE, fontSize: '18px' }).setOrigin(0.5).setInteractive();
+        const info = `生存时间: ${this.stats.time.toFixed(1)} 秒\n总击杀: ${this.stats.kills}\nBOSS击杀: ${this.stats.bosses || 0}\n最终等级: ${this.stats.level}`;
+        this.add.text(GAME_WIDTH/2, 120, info, { ...FONT_STYLE, fontSize: '16px', align: 'center', lineHeight: 24 }).setOrigin(0.5);
         
-        btnRetry.on('pointerdown', () => this.scene.start('GameScene'));
+        const rewardText = `获得灵魄: ${totalPoints}\n(时间+${timePoints} 击杀+${killPoints} BOSS+${bossPoints})`;
+        this.add.text(GAME_WIDTH/2, 190, rewardText, { ...FONT_STYLE, fontSize: '14px', fill: '#00ffff', align: 'center' }).setOrigin(0.5);
+
+        const btnRetry = this.add.text(GAME_WIDTH/2, 230, '[ 按 R 重新开始 ]', { ...FONT_STYLE, fontSize: '18px' }).setOrigin(0.5).setInteractive();
+        const btnMenu = this.add.text(GAME_WIDTH/2, 260, '[ 按 M 返回菜单 ]', { ...FONT_STYLE, fontSize: '18px' }).setOrigin(0.5).setInteractive();
+        
+        btnRetry.on('pointerdown', () => this.scene.start('GameScene', { hero: HEROES[0] })); 
         btnMenu.on('pointerdown', () => this.scene.start('MainMenuScene'));
-        this.input.keyboard.on('keydown-R', () => this.scene.start('GameScene'));
+        this.input.keyboard.on('keydown-R', () => this.scene.start('GameScene', { hero: HEROES[0] }));
         this.input.keyboard.on('keydown-M', () => this.scene.start('MainMenuScene'));
     }
 }
@@ -2081,7 +2929,7 @@ const config = {
     pixelArt: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     physics: { default: 'arcade', arcade: { debug: false, gravity: { x: 0, y: 0 } } },
-    scene: [BootScene, MainMenuScene, GameScene, GameOverScene]
+    scene: [BootScene, MainMenuScene, TalentScene, GameScene, GameOverScene]
 };
 
 const game = new Phaser.Game(config);
