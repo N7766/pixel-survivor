@@ -2126,6 +2126,50 @@ class GameScene extends Phaser.Scene {
              else this.togglePause();
         });
 
+        // 允许同一位置上多个可交互元素同时响应（例如全屏遮罩 + 按钮），
+        // 避免被隐藏/透明的全屏遮罩抢占点击，导致暂停菜单按钮无法触发
+        this.input.setTopOnly(false);
+
+        // --- 全局鼠标处理：用于暂停菜单按钮点击与悬停 ---
+        this.input.on('pointermove', (pointer) => {
+            if (!this.isPaused || !this.pauseMenuContainer || !this.pauseMenuContainer.visible) return;
+            if (!this.pauseBtnContinueBg || !this.pauseBtnMenuBg) return;
+
+            const x = pointer.x;
+            const y = pointer.y;
+
+            const contBounds = this.pauseBtnContinueBg.getBounds();
+            const menuBounds = this.pauseBtnMenuBg.getBounds();
+
+            const overContinue = Phaser.Geom.Rectangle.Contains(contBounds, x, y);
+            const overMenu = Phaser.Geom.Rectangle.Contains(menuBounds, x, y);
+
+            this.pauseBtnContinueBg.setFillStyle(overContinue ? 0x555555 : 0x333333);
+            this.pauseBtnMenuBg.setFillStyle(overMenu ? 0x555555 : 0x333333);
+        });
+
+        this.input.on('pointerdown', (pointer) => {
+            if (!this.isPaused || !this.pauseMenuContainer || !this.pauseMenuContainer.visible) return;
+            if (!this.pauseBtnContinueBg || !this.pauseBtnMenuBg) return;
+
+            const x = pointer.x;
+            const y = pointer.y;
+
+            const contBounds = this.pauseBtnContinueBg.getBounds();
+            const menuBounds = this.pauseBtnMenuBg.getBounds();
+
+            if (Phaser.Geom.Rectangle.Contains(contBounds, x, y)) {
+                this.togglePause();
+                return;
+            }
+
+            if (Phaser.Geom.Rectangle.Contains(menuBounds, x, y)) {
+                this.scene.stop('GameScene');
+                this.scene.start('MainMenuScene');
+                return;
+            }
+        });
+
         // --- Timers ---
         this.lastFired = 0;
         this.nextSpawnTime = 0;
@@ -4594,24 +4638,27 @@ class GameScene extends Phaser.Scene {
         this.btnShop = this.add.text(GAME_WIDTH - 60, GAME_HEIGHT - 30, '[ 商店 ]', { ...FONT_STYLE, fontSize: '14px', fill: '#ffd700', backgroundColor: '#000000' }).setPadding(5).setOrigin(0.5).setScrollFactor(0).setDepth(200).setInteractive();
         this.btnShop.on('pointerdown', () => this.toggleShop());
 
-        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 60, '游戏已暂停', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+        this.pauseText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 60, '暂停中 - 按 ESC 继续', { ...FONT_STYLE, fontSize: '24px' }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setVisible(false);
 
         // 暂停菜单按钮容器
         this.pauseMenuContainer = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2 + 10).setDepth(2000).setScrollFactor(0).setVisible(false);
+        
         const pauseBg = this.add.rectangle(0, 0, 220, 120, 0x000000, 0.9).setStrokeStyle(2, 0xffffff);
-        const btnContinue = this.add.text(0, -15, '【 继续游戏 】', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5).setInteractive();
-        const btnMainMenu = this.add.text(0, 25, '【 返回主菜单 】', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5).setInteractive();
+        pauseBg.setInteractive(); // 阻挡下层点击，防止点到游戏场景
 
-        // 确保暂停菜单在上层
-        pauseBg.setInteractive(); // 阻挡下层点击
+        // --- 继续游戏按钮 ---
+        this.pauseBtnContinueBg = this.add.rectangle(0, -20, 180, 30, 0x333333);
+        this.pauseBtnContinueText = this.add.text(0, -20, '继续游戏', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5);
 
-        btnContinue.on('pointerdown', () => this.togglePause());
-        btnMainMenu.on('pointerdown', () => {
-            this.scene.stop('GameScene');
-            this.scene.start('MainMenuScene');
-        });
+        // --- 返回主菜单按钮 ---
+        this.pauseBtnMenuBg = this.add.rectangle(0, 25, 180, 30, 0x333333);
+        this.pauseBtnMenuText = this.add.text(0, 25, '返回主菜单', { ...FONT_STYLE, fontSize: '16px', fill: '#ffffff' }).setOrigin(0.5);
 
-        this.pauseMenuContainer.add([pauseBg, btnContinue, btnMainMenu]);
+        this.pauseMenuContainer.add([
+            pauseBg,
+            this.pauseBtnContinueBg, this.pauseBtnContinueText,
+            this.pauseBtnMenuBg, this.pauseBtnMenuText
+        ]);
         
         this.createShopUI();
         this.createEventUI();
